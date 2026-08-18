@@ -1,0 +1,21 @@
+RewriteEngine On
+
+# Impede a listagem automática de diretórios
+Options -Indexes
+
+# Permite acesso CORS em ambientes de teste para solicitações de OPTIONS
+# (Embora para Android puro CORS não seja estritamente necessário, é útil para depuração)
+Header set Access-Control-Allow-Origin "*"
+Header set Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With"
+Header set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+
+# Trata a requisição de pré-vôo OPTIONS (Preflight) respondendo imediatamente 200 OK
+RewriteCond %{REQUEST_METHOD} OPTIONS
+RewriteRule ^(.*)$ - [R=200,L]
+
+# Se a requisição não corresponder a um arquivo físico
+RewriteCond %{REQUEST_FILENAME} !-f
+# Se a requisição não corresponder a uma pasta física
+RewriteCond %{REQUEST_FILENAME} !-d
+# Reescreve tudo para o index.php mantendo a query string (QSA)
+RewriteRule ^ index.php [QSA,L]
