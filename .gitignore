@@ -1,2 +1,11 @@
 .env
 config/config.local.php
+config/config.php
+config/config.example.php
+sql/dump_completo.sql
+validador.html
+migrate_termos.php
+.env.example
+.agents/
+*.ttf
+*.txt
