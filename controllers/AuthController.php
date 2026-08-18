@@ -34,22 +34,15 @@ class AuthController {
 
         // Carrega configurações de segurança
         $configFile = dirname(__DIR__) . '/config/config.php';
-        if (file_exists($configFile)) {
-            $config = require $configFile;
-            $maxAttempts = $config['security']['max_login_attempts'] ?? 5;
-            $lockoutTime = $config['security']['lockout_time'] ?? 900;
-            $secretKey = $config['app']['secret_key'];
-            $tokenTtl = $config['app']['token_ttl'] ?? 43200;
-        } else {
-            $maxAttempts = (int) (getenv('MAX_LOGIN_ATTEMPTS') ?: 5);
-            $lockoutTime = (int) (getenv('LOCKOUT_TIME') ?: 900);
-            $secretKey = getenv('APP_SECRET_KEY') ?: '';
-            $tokenTtl = (int) (getenv('APP_TOKEN_TTL') ?: 43200);
+        if (!file_exists($configFile)) {
+            $configFile = dirname(__DIR__) . '/config/config.example.php';
         }
+        $config = require $configFile;
 
-        if (empty($secretKey)) {
-            Response::json(false, "Configuração do servidor incompleta.", null, 500);
-        }
+        $maxAttempts = $config['security']['max_login_attempts'] ?? 5;
+        $lockoutTime = $config['security']['lockout_time'] ?? 900;
+        $secretKey = $config['app']['secret_key'];
+        $tokenTtl = $config['app']['token_ttl'] ?? 43200;
 
         $user = $this->getUsuarioModel()->findByLogin($login);
 

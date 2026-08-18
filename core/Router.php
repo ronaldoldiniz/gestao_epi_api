@@ -86,12 +86,11 @@ class Router {
                     call_user_func_array([$controllerInstance, $methodName], $matches);
                 } catch (\Throwable $th) {
                     $configFile = dirname(__DIR__) . '/config/config.php';
-                    if (file_exists($configFile)) {
-                        $config = require $configFile;
-                        $isDebug = $config['app']['debug'] ?? false;
-                    } else {
-                        $isDebug = filter_var(getenv('APP_DEBUG') ?: 'false', FILTER_VALIDATE_BOOLEAN);
+                    if (!file_exists($configFile)) {
+                        $configFile = dirname(__DIR__) . '/config/config.example.php';
                     }
+                    $config = require $configFile;
+                    $isDebug = $config['app']['debug'] ?? false;
 
                     if ($isDebug) {
                         Response::json(false, "Erro interno: " . $th->getMessage() . " em " . $th->getFile() . ":" . $th->getLine(), null, 500);
