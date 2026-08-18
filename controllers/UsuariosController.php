@@ -33,7 +33,8 @@ class UsuariosController {
                 'usu_perfil' => $user['usu_perfil'],
                 'usu_status' => $user['usu_status'],
                 'usu_data_cadastro' => $user['usu_data_cadastro'],
-                'usu_exige_troca_senha' => (int)($user['usu_exige_troca_senha'] ?? 0) === 1
+                'usu_exige_troca_senha' => (int)($user['usu_exige_troca_senha'] ?? 0) === 1,
+                'usu_ultimo_login' => $user['usu_ultimo_login'] ?? null
             ];
         }, $usuarios);
 
@@ -60,7 +61,8 @@ class UsuariosController {
             'usu_perfil' => $usuario['usu_perfil'],
             'usu_status' => $usuario['usu_status'],
             'usu_data_cadastro' => $usuario['usu_data_cadastro'],
-            'usu_exige_troca_senha' => (int)($usuario['usu_exige_troca_senha'] ?? 0) === 1
+            'usu_exige_troca_senha' => (int)($usuario['usu_exige_troca_senha'] ?? 0) === 1,
+            'usu_ultimo_login' => $usuario['usu_ultimo_login'] ?? null
         ];
 
         Response::json(true, "Usuário localizado com sucesso.", $resultado);

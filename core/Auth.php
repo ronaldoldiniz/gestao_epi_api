@@ -106,7 +106,7 @@ class Auth {
         // Verifica se o usuário tem a troca de senha obrigatória pendente
         try {
             $db = \Config\Database::getConnection();
-            $stmt = $db->prepare("SELECT usu_exige_troca_senha FROM Usuarios WHERE usu_id = :id LIMIT 1");
+            $stmt = $db->prepare("SELECT usu_exige_troca_senha FROM usuarios WHERE usu_id = :id LIMIT 1");
             $stmt->execute([':id' => (int)self::$currentUser['usu_id']]);
             $dbUser = $stmt->fetch();
 

@@ -56,16 +56,12 @@ class Database {
                     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                     PDO::ATTR_EMULATE_PREPARES => false, // Desabilita emulação de prepared statements por segurança
-                    PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES " . $dbConfig['charset']
+                    PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES " . $dbConfig['charset'],
+                    PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT => false // Exigido pelo Aiven no Render
                 ]);
             } catch (PDOException $e) {
-                // Em produção não mostramos detalhes da string de conexão ou detalhes internos do banco
-                $env = $config['app']['env'] ?? 'production';
-                if ($env === 'local') {
-                    throw new Exception("Erro de conexão com o banco de dados: " . $e->getMessage());
-                } else {
-                    throw new Exception("Não foi possível conectar ao banco de dados. Contate o administrador.");
-                }
+                // Forçar exibição temporária do erro no Render para depurar o login
+                throw new Exception("Erro de conexão com o banco de dados: " . $e->getMessage());
             }
         }
 

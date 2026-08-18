@@ -133,6 +133,16 @@ Para uma lista detalhada contendo exemplos de requisições e respostas JSON de 
 1. **Acesso ao Banco**: O aplicativo Android **nunca** deve fazer conexão direta com o MySQL do servidor da empresa. O acesso se dá exclusivamente por HTTPS através da API.
 2. **Minimização de Dados (LGPD)**: Quando usuários com perfil de menor privilégio (`TECNICO_SST`, `ALMOXARIFE_OPERADOR`, `GESTOR`) buscarem dados de funcionários, a API consultará a view `vw_funcionarios_mascarado`, ocultando CPFs e dados do eSocial.
 3. **Troca de Senha Obrigatória no Primeiro Acesso**: Ao criar ou redefinir a senha de um usuário, o administrador pode fornecer uma senha temporária e definir que a troca de senha é obrigatória. Nesses casos, o usuário fica restrito e não pode acessar nenhum endpoint do sistema exceto os de redefinição de senha (`POST /auth/alterar-senha-primeiro-acesso`), informações do perfil (`GET /auth/me`) ou logout (`POST /auth/logout`).
-4. **Criptografia de Senhas**: As senhas de usuários e os PINs de assinatura eletrônica dos funcionários são armazenados sob o hash `bcrypt` gerado pela função `password_hash()` do PHP. Nunca altere ou desabilite esta segurança para salvar texto puro.
-5. **Log de Auditoria**: Todas as inserções, atualizações, login, logouts, validações de PIN, cancelamento e devoluções são registradas na tabela `Log_Auditoria` indicando quem efetuou a operação.
-6. **HTTPS Obrigatório em Produção**: Configure um certificado SSL no seu servidor Apache em produção para blindar os dados em trânsito e proteger os tokens contra interceptações (ataques Man-in-the-Middle).
+4. **Segurança de Senhas e PIN (Hash Irreversível):** As senhas de acesso dos operadores e os PINs de assinatura eletrônica dos funcionários são processados e armazenados utilizando a função de dispersão criptográfica **SHA-256 combinada com Salt exclusivo**, garantindo a irreversibilidade matemática absoluta de senhas e PINs.
+5. **Criptografia de Dados Pessoais (AES-256-GCM Reversível):** Em atendimento à LGPD, informações pessoais sensíveis e de identificação de colaboradores (como CPF e número do eSocial) são gravadas e mantidas sob criptografia simétrica forte **AES-256-GCM**, permitindo a descriptografia controlada em tempo real em canais de auditoria seguros (HTTPS).
+6. **Log de Auditoria**: Todas as inserções, atualizações, login, logouts, validações de PIN, cancelamento e devoluções são registradas na tabela `log_auditoria` indicando quem efetuou a operação.
+7. **HTTPS Obrigatório em Produção**: Configure um certificado SSL no seu servidor Apache em produção para blindar os dados em trânsito e proteger os tokens contra interceptações (ataques Man-in-the-Middle).
+
+---
+
+## 🚀 Histórico de Atualizações do Backend (13/08/2026)
+
+*   **Rastreabilidade do Último Login Real de Operadores:**
+    *   Como a tabela `usuarios` não possui coluna física para o último login (evitando alterações de esquemas desnecessárias), criei uma subquery dinâmica na model [Usuario.php](file:///C:/xampp/htdocs/gestao_epi_api_5/models/Usuario.php#L32) para calcular a data e hora do último login de sucesso registrado na tabela de auditoria:
+        `SELECT ..., (SELECT MAX(log_datahora) FROM log_auditoria WHERE usu_id = u.usu_id AND log_acao = 'LOGIN') as usu_ultimo_login FROM usuarios u`.
+    *   Mapeado o campo `usu_ultimo_login` na resposta do JSON das rotas `index` (listagem geral) e `show` (busca individual) de operadores no [UsuariosController.php](file:///C:/xampp/htdocs/gestao_epi_api_5/controllers/UsuariosController.php#L34).

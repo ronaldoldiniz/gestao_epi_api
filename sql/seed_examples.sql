@@ -22,10 +22,10 @@ FROM Funcionarios;
 -- 1. Inserção de Usuários de Diferentes Perfis
 -- Senha de teste padrão para todos: 123456
 INSERT INTO Usuarios (usu_login, usu_senha_hash, usu_perfil, usu_status, usu_data_cadastro, usu_tentativas_falha) VALUES
-('rh_user', '$2y$10$u3524.3Z4hZl7bOpxmF8J.VjK6yMeeO8Q12Y1Q4P24G59.7C9nBfe', 'RH_ADMINISTRATIVO', 'ATIVO', NOW(), 0),
-('sst_user', '$2y$10$u3524.3Z4hZl7bOpxmF8J.VjK6yMeeO8Q12Y1Q4P24G59.7C9nBfe', 'TECNICO_SST', 'ATIVO', NOW(), 0),
-('almoxarife', '$2y$10$u3524.3Z4hZl7bOpxmF8J.VjK6yMeeO8Q12Y1Q4P24G59.7C9nBfe', 'ALMOXARIFE_OPERADOR', 'ATIVO', NOW(), 0),
-('gestor_user', '$2y$10$u3524.3Z4hZl7bOpxmF8J.VjK6yMeeO8Q12Y1Q4P24G59.7C9nBfe', 'GESTOR', 'ATIVO', NOW(), 0)
+('rh_user', '$2y$10$NjoZi8PNNIVcqVdCux.CP.YnCBTnqKxAF8YX7ALnl4LloNlq8kp86', 'RH_ADMINISTRATIVO', 'ATIVO', NOW(), 0),
+('sst_user', '$2y$10$NjoZi8PNNIVcqVdCux.CP.YnCBTnqKxAF8YX7ALnl4LloNlq8kp86', 'TECNICO_SST', 'ATIVO', NOW(), 0),
+('almoxarife', '$2y$10$NjoZi8PNNIVcqVdCux.CP.YnCBTnqKxAF8YX7ALnl4LloNlq8kp86', 'ALMOXARIFE_OPERADOR', 'ATIVO', NOW(), 0),
+('gestor_user', '$2y$10$NjoZi8PNNIVcqVdCux.CP.YnCBTnqKxAF8YX7ALnl4LloNlq8kp86', 'GESTOR', 'ATIVO', NOW(), 0)
 ON DUPLICATE KEY UPDATE usu_status = 'ATIVO';
 
 -- 2. Inserção de Funcionários

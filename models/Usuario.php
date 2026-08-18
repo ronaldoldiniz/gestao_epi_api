@@ -29,9 +29,10 @@ class Usuario {
      * Busca usuário pelo ID
      */
     public function findById(int $id): ?array {
-        $sql = "SELECT usu_id, usu_login, usu_perfil, usu_status, usu_data_cadastro, 
-                       usu_tentativas_falha, usu_data_bloqueio, usu_motivo_bloqueio, usu_exige_troca_senha 
-                FROM usuarios WHERE usu_id = :id LIMIT 1";
+        $sql = "SELECT u.usu_id, u.usu_login, u.usu_perfil, u.usu_status, u.usu_data_cadastro, 
+                       u.usu_tentativas_falha, u.usu_data_bloqueio, u.usu_motivo_bloqueio, u.usu_exige_troca_senha,
+                       (SELECT MAX(log_datahora) FROM log_auditoria WHERE usu_id = u.usu_id AND log_acao = 'LOGIN') as usu_ultimo_login
+                FROM usuarios u WHERE u.usu_id = :id LIMIT 1";
         $stmt = $this->db->prepare($sql);
         $stmt->execute([':id' => $id]);
         $user = $stmt->fetch();
@@ -42,9 +43,10 @@ class Usuario {
      * Lista todos os usuários
      */
     public function findAll(): array {
-        $sql = "SELECT usu_id, usu_login, usu_perfil, usu_status, usu_data_cadastro, 
-                       usu_tentativas_falha, usu_data_bloqueio, usu_motivo_bloqueio, usu_exige_troca_senha 
-                FROM usuarios ORDER BY usu_login ASC";
+        $sql = "SELECT u.usu_id, u.usu_login, u.usu_perfil, u.usu_status, u.usu_data_cadastro, 
+                       u.usu_tentativas_falha, u.usu_data_bloqueio, u.usu_motivo_bloqueio, u.usu_exige_troca_senha,
+                       (SELECT MAX(log_datahora) FROM log_auditoria WHERE usu_id = u.usu_id AND log_acao = 'LOGIN') as usu_ultimo_login
+                FROM usuarios u ORDER BY u.usu_login ASC";
         $stmt = $this->db->query($sql);
         return $stmt->fetchAll();
     }
