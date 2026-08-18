@@ -1,6 +1,6 @@
 FROM php:8.1-apache
 
-RUN a]2enmod rewrite
+RUN a2enmod rewrite
 
 COPY . /var/www/html/
 
