@@ -17,23 +17,17 @@ class FuncionariosController {
     }
 
     /**
-     * Define se a requisição atual exige mascaramento de dados pessoais (CPF/eSocial)
-     */
-    private function shouldMask(array $user): bool {
-        $perfil = $user['usu_perfil'];
-        // Apenas ADMINISTRADOR e RH_ADMINISTRATIVO podem ver os dados completos
-        return !in_array($perfil, ['ADMINISTRADOR', 'RH_ADMINISTRATIVO'], true);
-    }
-
-    /**
      * GET /funcionarios
      */
     public function index(): void {
         $currentUser = Auth::requireAuth(['ADMINISTRADOR', 'RH_ADMINISTRATIVO', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR', 'GESTOR']);
-        $mask = $this->shouldMask($currentUser);
+        $funcionarios = $this->funcionarioModel->findAll();
+        
+        $formattedList = array_map(function($f) use ($currentUser) {
+            return \Security\AuthorizationService::formatFuncionarioData($f, $currentUser['usu_perfil']);
+        }, $funcionarios);
 
-        $funcionarios = $this->funcionarioModel->findAll($mask);
-        Response::json(true, "Funcionários listados com sucesso.", $funcionarios);
+        Response::json(true, "Funcionários listados com sucesso.", $formattedList);
     }
 
     /**
@@ -41,14 +35,14 @@ class FuncionariosController {
      */
     public function show(string $id): void {
         $currentUser = Auth::requireAuth(['ADMINISTRADOR', 'RH_ADMINISTRATIVO', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR', 'GESTOR']);
-        $mask = $this->shouldMask($currentUser);
-
-        $funcionario = $this->funcionarioModel->findById((int)$id, $mask);
+        
+        $funcionario = $this->funcionarioModel->findById((int)$id);
         if (!$funcionario) {
             Response::json(false, "Funcionário não encontrado.", null, 404);
         }
 
-        Response::json(true, "Funcionário localizado com sucesso.", $funcionario);
+        $formatted = \Security\AuthorizationService::formatFuncionarioData($funcionario, $currentUser['usu_perfil']);
+        Response::json(true, "Funcionário localizado com sucesso.", $formatted);
     }
 
     /**
@@ -56,14 +50,14 @@ class FuncionariosController {
      */
     public function showByQrCode(string $codigo): void {
         $currentUser = Auth::requireAuth(['ADMINISTRADOR', 'RH_ADMINISTRATIVO', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR', 'GESTOR']);
-        $mask = $this->shouldMask($currentUser);
-
-        $funcionario = $this->funcionarioModel->findByQrCode($codigo, $mask);
+        
+        $funcionario = $this->funcionarioModel->findByQrCode($codigo);
         if (!$funcionario) {
             Response::json(false, "Funcionário com QR Code fornecido não foi encontrado.", null, 404);
         }
 
-        Response::json(true, "Funcionário localizado via QR Code.", $funcionario);
+        $formatted = \Security\AuthorizationService::formatFuncionarioData($funcionario, $currentUser['usu_perfil']);
+        Response::json(true, "Funcionário localizado via QR Code.", $formatted);
     }
 
     /**
@@ -88,30 +82,45 @@ class FuncionariosController {
             Response::json(false, "CPF informado é inválido. Deve possuir 11 dígitos numéricos.", null, 422);
         }
 
-        // Gerar QR Code único caso não enviado (podemos gerar um UUID simples ou string baseada no CPF)
+        // Verificar se CPF já existe
+        if ($this->funcionarioModel->findByCpf($cpf)) {
+            Response::json(false, "Já existe um funcionário cadastrado com este CPF.", null, 409);
+            return;
+        }
+
         $qrcode = $input['fun_qrcode'] ?? null;
         if (!$qrcode || trim($qrcode) === '') {
             $qrcode = 'EPI-' . $cpf . '-' . bin2hex(random_bytes(4));
         }
 
+        $dataToCreate = [
+            'fun_nome' => trim($input['fun_nome']),
+            'fun_cpf' => $cpf,
+            'fun_esocial' => trim($input['fun_esocial']),
+            'fun_departamento' => trim($input['fun_departamento']),
+            'fun_cargo' => trim($input['fun_cargo']),
+            'fun_dataadmissao' => $input['fun_dataadmissao'],
+            'fun_situacao' => $input['fun_situacao'] ?? 'ATIVO',
+            'fun_qrcode' => $qrcode
+        ];
+
         try {
-            $funcId = $this->funcionarioModel->create([
-                'fun_nome' => trim($input['fun_nome']),
-                'fun_cpf' => $cpf,
-                'fun_esocial' => trim($input['fun_esocial']),
-                'fun_departamento' => trim($input['fun_departamento']),
-                'fun_cargo' => trim($input['fun_cargo']),
-                'fun_dataadmissao' => $input['fun_dataadmissao'],
-                'fun_situacao' => $input['fun_situacao'] ?? 'ATIVO',
-                'fun_qrcode' => $qrcode
-            ]);
+            $funcId = $this->funcionarioModel->create($dataToCreate);
 
-            Audit::log("Cadastrou funcionário", "Funcionarios", $funcId, "Funcionário: " . $input['fun_nome'], null, $funcId);
+            \Core\Audit::logCadastro("Funcionarios", $funcId, $input['fun_nome'], $dataToCreate);
 
-            $novo = $this->funcionarioModel->findById($funcId, false);
-            Response::json(true, "Funcionário cadastrado com sucesso.", $novo, 201);
+            $novo = $this->funcionarioModel->findById($funcId);
+            $formatted = \Security\AuthorizationService::formatFuncionarioData($novo, $currentUser['usu_perfil']);
+            Response::json(true, "Funcionário cadastrado com sucesso.", $formatted, 201);
         } catch (Exception $e) {
-            Response::json(false, "Falha ao cadastrar funcionário: " . $e->getMessage(), null, 500);
+            $msg = $e->getMessage();
+            if (strpos($msg, '1062') !== false && strpos($msg, 'fun_cpf') !== false) {
+                Response::json(false, "Já existe um funcionário cadastrado com este CPF.", null, 409);
+            } elseif (strpos($msg, '1062') !== false && (strpos($msg, 'fun_qrcode') !== false || strpos($msg, 'qrcode') !== false)) {
+                Response::json(false, "Já existe um funcionário cadastrado com este QR Code.", null, 409);
+            } else {
+                Response::json(false, "Não foi possível cadastrar este funcionário, pois já existe um funcionário com esses dados no sistema. Verifique o cadastro existente antes de continuar.", null, 409);
+            }
         }
     }
 
@@ -123,16 +132,44 @@ class FuncionariosController {
         
         $funcId = (int)$id;
         $funcionario = $this->funcionarioModel->findById($funcId, false);
+        $input = json_decode(file_get_contents('php://input'), true);
+
         if (!$funcionario) {
-            Response::json(false, "Funcionário não encontrado.", null, 404);
+            try {
+                $cpf = preg_replace('/[^0-9]/', '', $input['fun_cpf'] ?? $input['cpf'] ?? '');
+                if (strlen($cpf) !== 11) {
+                    $cpf = '00000000000';
+                }
+
+                $qrcode = $input['fun_qrcode'] ?? 'EPI-' . $cpf . '-' . bin2hex(random_bytes(4));
+
+                $dataToCreate = [
+                    'fun_nome' => trim($input['fun_nome'] ?? $input['nome'] ?? ''),
+                    'fun_cpf' => $cpf,
+                    'fun_esocial' => trim($input['fun_esocial'] ?? $input['esocial'] ?? ''),
+                    'fun_departamento' => trim($input['fun_departamento'] ?? $input['departamento'] ?? ''),
+                    'fun_cargo' => trim($input['fun_cargo'] ?? $input['cargo'] ?? ''),
+                    'fun_dataadmissao' => $input['fun_dataadmissao'] ?? $input['dataAdmissao'] ?? date('Y-m-d'),
+                    'fun_situacao' => $input['fun_situacao'] ?? $input['situacao'] ?? 'ATIVO',
+                    'fun_qrcode' => $qrcode
+                ];
+
+                $this->funcionarioModel->createWithId($funcId, $dataToCreate);
+
+                \Core\Audit::logCadastro("Funcionarios", $funcId, $dataToCreate['fun_nome'], $dataToCreate);
+                $atualizado = $this->funcionarioModel->findById($funcId);
+                Response::json(true, "Funcionário atualizado com sucesso (sincronizado).", $atualizado);
+                return;
+            } catch (Exception $e) {
+                Response::json(false, "Falha ao criar funcionário inexistente: " . $e->getMessage(), null, 500);
+                return;
+            }
         }
 
-        $input = json_decode(file_get_contents('php://input'), true);
         if (empty($input)) {
             Response::json(false, "Nenhum dado informado para atualização.", null, 400);
         }
 
-        // Se CPF for alterado, valida formato
         if (isset($input['fun_cpf'])) {
             $input['fun_cpf'] = preg_replace('/[^0-9]/', '', $input['fun_cpf']);
             if (strlen($input['fun_cpf']) !== 11) {
@@ -143,11 +180,12 @@ class FuncionariosController {
         try {
             $this->funcionarioModel->update($funcId, $input);
             
-            // Gravação no log de auditoria
-            Audit::log("Atualizou dados de funcionário", "Funcionarios", $funcId, "Campos editados: " . implode(", ", array_keys($input)), null, $funcId);
+            // Gravação no log de auditoria via compareAndLog
+            \Core\Audit::compareAndLog("ALTERAÇÃO", "Funcionarios", $funcId, $funcionario, $input, null, $funcId);
 
-            $atualizado = $this->funcionarioModel->findById($funcId, false);
-            Response::json(true, "Funcionário atualizado com sucesso.", $atualizado);
+            $atualizado = $this->funcionarioModel->findById($funcId);
+            $formatted = \Security\AuthorizationService::formatFuncionarioData($atualizado, $currentUser['usu_perfil']);
+            Response::json(true, "Funcionário atualizado com sucesso.", $formatted);
         } catch (Exception $e) {
             Response::json(false, "Falha ao atualizar funcionário: " . $e->getMessage(), null, 500);
         }
@@ -160,14 +198,14 @@ class FuncionariosController {
         Auth::requireAuth(['ADMINISTRADOR']);
         
         $funcId = (int)$id;
-        $funcionario = $this->funcionarioModel->findById($funcId, false);
+        $funcionario = $this->funcionarioModel->findById($funcId);
         if (!$funcionario) {
             Response::json(false, "Funcionário não encontrado.", null, 404);
         }
 
         try {
             $this->funcionarioModel->delete($funcId);
-            Audit::log("Inativou funcionário (Exclusão lógica)", "Funcionarios", $funcId, "Nome: " . $funcionario['fun_nome'], null, $funcId);
+            \Core\Audit::logInativacao("Funcionarios", $funcId, $funcionario['fun_nome']);
             Response::json(true, "Funcionário inativado com sucesso.");
         } catch (Exception $e) {
             Response::json(false, "Falha ao inativar funcionário: " . $e->getMessage(), null, 500);

@@ -48,22 +48,68 @@ class EpisController {
         
         $input = json_decode(file_get_contents('php://input'), true);
 
-        // Validação dos dados obrigatórios
-        $required = ['epi_nome', 'epi_ca', 'epi_vencimento_ca', 'epi_validade_uso_dias', 'epi_valor', 'epi_origem_preco'];
+        $tipoItem = $input['epi_tipo_item'] ?? 'EPI_COM_CA';
+        $tiposPermitidos = ['EPI_COM_CA', 'ITEM_SEGURANCA_SEM_CA', 'UNIFORME', 'OUTRO'];
+        if (!in_array($tipoItem, $tiposPermitidos, true)) {
+            Response::json(false, "Tipo de item inválido.", null, 422);
+            return;
+        }
+
+        // Campos obrigatórios independentes do tipo
+        $required = ['epi_nome', 'epi_fabricante', 'epi_valor', 'epi_origem_preco'];
         foreach ($required as $field) {
             if (!isset($input[$field]) || trim((string)$input[$field]) === '') {
                 Response::json(false, "O campo '{$field}' é obrigatório.", null, 422);
+                return;
+            }
+        }
+
+        // Campos obrigatórios apenas para EPI com C.A.
+        if ($tipoItem === 'EPI_COM_CA') {
+            $requiredCa = ['epi_ca', 'epi_vencimento_ca'];
+            foreach ($requiredCa as $field) {
+                if (!isset($input[$field]) || trim((string)$input[$field]) === '') {
+                    Response::json(false, "O campo '{$field}' é obrigatório para EPIs com Certificado de Aprovação.", null, 422);
+                    return;
+                }
+            }
+        }
+
+        // Para item sem C.A., Uniforme ou Outro exigir ao menos um dado de rastreabilidade (exclui lote no cadastro fixo conforme TCC)
+        if (in_array($tipoItem, ['ITEM_SEGURANCA_SEM_CA', 'UNIFORME', 'OUTRO'], true)) {
+            $temRastreabilidade =
+                !empty(trim((string)($input['epi_modelo'] ?? ''))) ||
+                !empty(trim((string)($input['epi_identificacao'] ?? ''))) ||
+                !empty(trim((string)($input['epi_ref_fornecedor'] ?? '')));
+
+            if (!$temRastreabilidade) {
+                Response::json(false,
+                    "Para itens de segurança sem C.A., uniforme ou outros, informe ao menos um dado de rastreabilidade: modelo, identificação interna ou referência do fornecedor.",
+                    null, 422);
+                return;
+            }
+        }
+
+        // Validação condicional para vida útil se for CONTROLADO
+        if (isset($input['epi_vida_util_tipo']) && $input['epi_vida_util_tipo'] === 'CONTROLADO') {
+            if (!isset($input['epi_vida_util']) || trim((string)$input['epi_vida_util']) === '' || (int)$input['epi_vida_util'] <= 0) {
+                Response::json(false, "O campo 'Vida Útil' é obrigatório e deve ser maior que zero quando o controle for 'CONTROLADO'.", null, 422);
+                return;
+            }
+            if (!isset($input['epi_vida_util_unidade']) || trim((string)$input['epi_vida_util_unidade']) === '') {
+                Response::json(false, "A unidade da vida útil é obrigatória quando o controle for 'CONTROLADO'.", null, 422);
+                return;
             }
         }
 
         try {
             $epiId = $this->epiModel->create($input, (int)$currentUser['usu_id']);
-            Audit::log("Cadastrou um novo EPI", "EPIs", $epiId, "EPI: " . $input['epi_nome'] . " (C.A. " . $input['epi_ca'] . ")", null, null, $epiId);
+            \Core\Audit::logCadastro("EPIs", $epiId, $input['epi_nome'], $input);
             
             $novo = $this->epiModel->findById($epiId);
-            Response::json(true, "EPI cadastrado com sucesso.", $novo, 201);
+            Response::json(true, "Item cadastrado com sucesso.", $novo, 201);
         } catch (Exception $e) {
-            Response::json(false, "Falha ao cadastrar EPI: " . $e->getMessage(), null, 500);
+            Response::json(false, "Falha ao cadastrar item: " . $e->getMessage(), null, 500);
         }
     }
 
@@ -75,18 +121,42 @@ class EpisController {
         
         $epiId = (int)$id;
         $epi = $this->epiModel->findById($epiId);
+        $input = json_decode(file_get_contents('php://input'), true);
+
         if (!$epi) {
-            Response::json(false, "EPI não encontrado.", null, 404);
+            // Se o EPI não existe no MySQL, cria com o ID especificado
+            try {
+                $this->epiModel->createWithId($epiId, $input, (int)$currentUser['usu_id']);
+                \Core\Audit::logCadastro("EPIs", $epiId, $input['epi_nome'], $input);
+                $atualizado = $this->epiModel->findById($epiId);
+                Response::json(true, "EPI atualizado com sucesso (sincronizado).", $atualizado);
+                return;
+            } catch (Exception $e) {
+                Response::json(false, "Falha ao criar EPI inexistente no update: " . $e->getMessage(), null, 500);
+                return;
+            }
         }
 
-        $input = json_decode(file_get_contents('php://input'), true);
         if (empty($input)) {
             Response::json(false, "Nenhum dado informado para atualização.", null, 400);
         }
 
+        // Validação condicional para atualização de vida útil se for CONTROLADO
+        $tipoControle = $input['epi_vida_util_tipo'] ?? $epi['epi_vida_util_tipo'] ?? 'CONTROLADO';
+        if ($tipoControle === 'CONTROLADO') {
+            if (isset($input['epi_vida_util']) && ((int)$input['epi_vida_util'] <= 0 || trim((string)$input['epi_vida_util']) === '')) {
+                Response::json(false, "O campo 'Vida Útil' é obrigatório e deve ser maior que zero quando o controle for 'CONTROLADO'.", null, 422);
+                return;
+            }
+            if (isset($input['epi_vida_util_unidade']) && trim((string)$input['epi_vida_util_unidade']) === '') {
+                Response::json(false, "A unidade da vida útil é obrigatória quando o controle for 'CONTROLADO'.", null, 422);
+                return;
+            }
+        }
+
         try {
             $this->epiModel->update($epiId, $input, (int)$currentUser['usu_id']);
-            Audit::log("Atualizou dados de um EPI", "EPIs", $epiId, "Campos editados: " . implode(", ", array_keys($input)), null, null, $epiId);
+            \Core\Audit::compareAndLog("ALTERAÇÃO", "EPIs", $epiId, $epi, $input);
 
             $atualizado = $this->epiModel->findById($epiId);
             Response::json(true, "EPI atualizado com sucesso.", $atualizado);
@@ -109,7 +179,7 @@ class EpisController {
 
         try {
             $this->epiModel->delete($epiId);
-            Audit::log("Inativou EPI (Exclusão lógica)", "EPIs", $epiId, "Nome: " . $epi['epi_nome'], null, null, $epiId);
+            \Core\Audit::logInativacao("EPIs", $epiId, $epi['epi_nome']);
             Response::json(true, "EPI inativado com sucesso.");
         } catch (Exception $e) {
             Response::json(false, "Falha ao inativar EPI: " . $e->getMessage(), null, 500);

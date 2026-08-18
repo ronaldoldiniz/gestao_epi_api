@@ -48,8 +48,8 @@ class DashboardController {
 
         try {
             $sql = "SELECT 
-                        COALESCE(SUM(i.item_quantidade * ep.epi_valor), 0) as custo_total_acumulado,
-                        COALESCE(AVG(i.item_quantidade * ep.epi_valor), 0) as custo_medio_por_item,
+                        COALESCE(SUM(i.item_quantidade * COALESCE(i.item_epi_valor_snapshot, ep.epi_valor)), 0) as custo_total_acumulado,
+                        COALESCE(AVG(i.item_quantidade * COALESCE(i.item_epi_valor_snapshot, ep.epi_valor)), 0) as custo_medio_por_item,
                         (SELECT COUNT(*) FROM Historico_Preco_EPI) as total_atualizacoes_preco
                     FROM Itens_Entrega i
                     JOIN Entrega_EPIs e ON i.entr_id = e.entr_id

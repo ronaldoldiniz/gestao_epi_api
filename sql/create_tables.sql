@@ -29,14 +29,25 @@ CREATE TABLE IF NOT EXISTS Funcionarios (
 CREATE TABLE IF NOT EXISTS EPIs (
     epi_id INT AUTO_INCREMENT PRIMARY KEY,
     epi_nome VARCHAR(100) NOT NULL,
-    epi_ca VARCHAR(30) NOT NULL,
-    epi_vencimento_ca DATE NOT NULL,
+    epi_tipo_item ENUM('EPI_COM_CA', 'ITEM_SEGURANCA_SEM_CA') NOT NULL DEFAULT 'EPI_COM_CA',
+    epi_ca VARCHAR(30) NULL DEFAULT NULL,
+    epi_vencimento_ca DATE NULL DEFAULT NULL,
     epi_fabricante VARCHAR(100) NOT NULL,
-    epi_validade_uso_dias INT NOT NULL,
+    epi_validade_uso_dias INT NOT NULL DEFAULT 0,
     epi_status VARCHAR(30) NOT NULL DEFAULT 'ATIVO',
     epi_valor DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     epi_origem_preco VARCHAR(50) NOT NULL,
-    epi_localizacao VARCHAR(100) NULL
+    epi_localizacao VARCHAR(100) NULL,
+    epi_vida_util INT NULL,
+    epi_vida_util_unidade VARCHAR(20) NULL,
+    epi_vida_util_tipo VARCHAR(30) NULL DEFAULT 'CONTROLADO',
+    epi_vida_util_alerta INT NULL,
+    epi_vida_util_obs TEXT NULL,
+    epi_numero_lote VARCHAR(100) NULL DEFAULT NULL,
+    epi_modelo VARCHAR(150) NULL DEFAULT NULL,
+    epi_identificacao VARCHAR(100) NULL DEFAULT NULL,
+    epi_ref_fornecedor VARCHAR(150) NULL DEFAULT NULL,
+    epi_exige_tamanho TINYINT(1) NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS Assinatura_Eletronica (
@@ -79,6 +90,8 @@ CREATE TABLE IF NOT EXISTS Itens_Entrega (
     item_quantidade INT NOT NULL DEFAULT 1,
     item_data_devolucao DATETIME NULL,
     item_status VARCHAR(30) NOT NULL DEFAULT 'ENTREGUE',
+    item_numero_lote VARCHAR(100) NULL DEFAULT NULL,
+    item_tamanho VARCHAR(20) NULL DEFAULT NULL,
     FOREIGN KEY (entr_id) REFERENCES Entrega_EPIs(entr_id) ON DELETE CASCADE,
     FOREIGN KEY (epi_id) REFERENCES EPIs(epi_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -56,15 +56,27 @@ class DevolucoesController {
             Response::json(false, "Termo de entrega vinculado não encontrado.", null, 404);
         }
 
+        $motivo = isset($input['item_devolucao_motivo']) ? trim((string)$input['item_devolucao_motivo']) : ($input['motivo'] ?? null);
+        $condicao = isset($input['item_devolucao_condicao']) ? trim((string)$input['item_devolucao_condicao']) : ($input['condicao'] ?? null);
+        $destino = isset($input['item_devolucao_destino']) ? trim((string)$input['item_devolucao_destino']) : ($input['destino'] ?? null);
+        $obs = isset($input['item_devolucao_obs']) ? trim((string)$input['item_devolucao_obs']) : ($input['observacao'] ?? null);
+
         try {
-            $this->itemModel->devolver($itemId, $status);
+            $this->itemModel->devolver($itemId, $status, $motivo, $condicao, $destino, $obs);
             
             // Grava Log de Auditoria
+            $detalhesLog = json_encode([
+                'ocorrencia' => "EPI de ID {$item['epi_id']} devolvido pelo funcionário de ID {$entrega['fun_id']}. Status: {$status}.",
+                'motivo' => $motivo,
+                'condicao' => $condicao,
+                'destino' => $destino,
+                'observacao' => $obs
+            ], JSON_UNESCAPED_UNICODE);
             Audit::log(
-                "Registrou devolução de EPI", 
+                "DEVOLUÇÃO", 
                 "Itens_Entrega", 
                 $itemId, 
-                "EPI de ID {$item['epi_id']} devolvido pelo funcionário de ID {$entrega['fun_id']}. Status: {$status}",
+                $detalhesLog,
                 null,
                 (int)$entrega['fun_id'],
                 (int)$item['epi_id'],

@@ -85,6 +85,33 @@ Permite que o usuário altere sua senha temporária no primeiro acesso.
 
 ---
 
+### POST /auth/recuperar-senha
+Permite que o usuário redefina sua senha no fluxo de recuperação sem necessidade de estar autenticado.
+
+- **Corpo da Requisição (JSON):**
+  ```json
+  {
+    "usu_login": "sst_user",
+    "nova_senha": "nova_senha_segura1",
+    "confirmar_senha": "nova_senha_segura1"
+  }
+  ```
+- **Políticas de Senha:**
+  - Mínimo de 6 caracteres.
+  - Conter pelo menos uma letra e um número.
+
+- **Resposta de Sucesso:**
+  Status: `200 OK`
+  ```json
+  {
+    "success": true,
+    "message": "Senha redefinida com sucesso. Utilize a nova senha para acessar o sistema.",
+    "data": null
+  }
+  ```
+
+---
+
 ## 2. Gerenciamento de Usuários (Apenas ADMINISTRADOR)
 
 ### GET /usuarios

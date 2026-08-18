@@ -1,2 +1,7 @@
 config/config.php
 .agents/
+.env
+migrate_security.php
+SECURITY_DOCS.md
+security/
+logs/

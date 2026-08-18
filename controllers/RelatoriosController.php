@@ -5,6 +5,7 @@ namespace Controllers;
 
 use Core\Response;
 use Core\Auth;
+use Core\Audit;
 use Config\Database;
 use Models\EntregaEpi;
 use Models\ItemEntrega;
@@ -34,10 +35,10 @@ class RelatoriosController {
         Auth::requireAuth(['ADMINISTRADOR', 'TECNICO_SST', 'GESTOR']);
         
         $sql = "SELECT e.entr_id, f.fun_nome, u.usu_login, e.entr_data_entrega, e.entr_status, e.entr_motivo,
-                       (SELECT COUNT(*) FROM Itens_Entrega i WHERE i.entr_id = e.entr_id) as total_itens
-                FROM Entrega_EPIs e
-                JOIN Funcionarios f ON e.fun_id = f.fun_id
-                JOIN Usuarios u ON e.usu_id = u.usu_id
+                       (SELECT COUNT(*) FROM itens_entrega i WHERE i.entr_id = e.entr_id) as total_itens
+                FROM entrega_epis e
+                JOIN funcionarios f ON e.fun_id = f.fun_id
+                JOIN usuarios u ON e.usu_id = u.usu_id
                 ORDER BY e.entr_data_entrega DESC";
         
         $stmt = $this->db->query($sql);
@@ -77,7 +78,7 @@ class RelatoriosController {
     public function episVencidos(): void {
         Auth::requireAuth(['ADMINISTRADOR', 'TECNICO_SST', 'GESTOR']);
         
-        $sql = "SELECT * FROM EPIs WHERE epi_vencimento_ca < CURDATE() OR epi_status = 'VENCIDO'";
+        $sql = "SELECT * FROM epis WHERE epi_vencimento_ca < CURDATE() OR epi_status = 'VENCIDO'";
         $stmt = $this->db->query($sql);
         $vencidos = $stmt->fetchAll();
 
@@ -92,7 +93,7 @@ class RelatoriosController {
         Auth::requireAuth(['ADMINISTRADOR', 'TECNICO_SST', 'GESTOR']);
         
         $sql = "SELECT epi_id, epi_nome, epi_ca, epi_vencimento_ca, epi_fabricante, epi_status 
-                FROM EPIs 
+                FROM epis 
                 WHERE epi_vencimento_ca < CURDATE() AND epi_status != 'INATIVO'";
         
         $stmt = $this->db->query($sql);
@@ -110,12 +111,12 @@ class RelatoriosController {
 
         $sql = "SELECT 
                     DATE_FORMAT(e.entr_data_entrega, '%Y-%m') AS mes,
-                    SUM(i.item_quantidade * ep.epi_valor) AS custo_total,
+                    SUM(i.item_quantidade * COALESCE(i.item_epi_valor_snapshot, ep.epi_valor)) AS custo_total,
                     COUNT(DISTINCT e.entr_id) as total_entregas,
                     SUM(i.item_quantidade) as total_itens_entregues
-                FROM Itens_Entrega i
-                JOIN Entrega_EPIs e ON i.entr_id = e.entr_id
-                JOIN EPIs ep ON i.epi_id = ep.epi_id
+                FROM itens_entrega i
+                JOIN entrega_epis e ON i.entr_id = e.entr_id
+                JOIN epis ep ON i.epi_id = ep.epi_id
                 WHERE e.entr_status = 'FINALIZADA'
                 GROUP BY DATE_FORMAT(e.entr_data_entrega, '%Y-%m')
                 ORDER BY mes DESC";
@@ -127,225 +128,326 @@ class RelatoriosController {
     }
 
     /**
-     * GET /relatorios/epis/consumo
-     * Relatório de consumo de EPIs (específico por EPI ou todos)
+     * GET /relatorios/epis/geral
+     * Relatório geral consolidado de fornecimento de EPIs
      */
-    public function consumoEpis(): void {
-        Auth::requireAuth(['ADMINISTRADOR', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR', 'GESTOR']);
+    public function relatorioGeralEpis(): void {
+        $currentUser = Auth::requireAuth(['ADMINISTRADOR', 'TECNICO_SST', 'GESTOR']);
+        $userProfile = $currentUser['usu_perfil'] ?? '';
+        $canViewCosts = in_array($userProfile, ['ADMINISTRADOR', 'GESTOR'], true);
 
-        $params = $_GET;
-        $tipoRelatorio = $params['tipo_relatorio'] ?? 'TODOS';
-        $dataInicial = $params['data_inicial'] ?? null;
-        $dataFinal = $params['data_final'] ?? null;
-        $funcionarioId = !empty($params['funcionario_id']) ? (int)$params['funcionario_id'] : null;
-        $departamento = $params['departamento'] ?? null;
-        $cargo = $params['cargo'] ?? null;
-        $epiId = !empty($params['epi_id']) ? (int)$params['epi_id'] : null;
-        $categoria = $params['categoria'] ?? null;
-        $motivo = $params['motivo'] ?? null;
-        $usuarioId = !empty($params['usuario_id']) ? (int)$params['usuario_id'] : null;
-        $itemComCa = !empty($params['item_com_ca']) ? (int)$params['item_com_ca'] : null;
-        $statusEntrega = $params['status_entrega'] ?? 'FINALIZADA';
-        $pagina = max(1, (int)($params['pagina'] ?? 1));
-        $limite = max(1, min(10000, (int)($params['limite'] ?? 25)));
-        $ordenacao = $params['ordenacao'] ?? 'data_desc';
-        $currentUser = Auth::getCurrentUser();
-        $perfil = $currentUser['usu_perfil'] ?? '';
-        $permiteCustos = in_array($perfil, ['ADMINISTRADOR', 'GESTOR']);
+        // Parâmetros obrigatórios
+        $dataInicial = $_GET['data_inicial'] ?? '';
+        $dataFinal = $_GET['data_final'] ?? '';
 
-        $where = ["e.entr_status = :status_entrega"];
-        $bindings = [':status_entrega' => $statusEntrega];
-
-        if ($dataInicial) {
-            $where[] = "e.entr_data_entrega >= :data_inicial";
-            $bindings[':data_inicial'] = $dataInicial;
-        }
-        if ($dataFinal) {
-            $where[] = "e.entr_data_entrega <= :data_final";
-            $bindings[':data_final'] = $dataFinal;
-        }
-        if ($funcionarioId !== null) {
-            $where[] = "e.fun_id = :funcionario_id";
-            $bindings[':funcionario_id'] = $funcionarioId;
-        }
-        if ($departamento) {
-            $where[] = "f.fun_departamento = :departamento";
-            $bindings[':departamento'] = $departamento;
-        }
-        if ($cargo) {
-            $where[] = "f.fun_cargo = :cargo";
-            $bindings[':cargo'] = $cargo;
-        }
-        if ($epiId !== null) {
-            $where[] = "i.epi_id = :epi_id";
-            $bindings[':epi_id'] = $epiId;
-        }
-        if ($motivo) {
-            $where[] = "i.item_motivo_entrega = :motivo";
-            $bindings[':motivo'] = $motivo;
-        }
-        if ($usuarioId !== null) {
-            $where[] = "e.usu_id = :usuario_id";
-            $bindings[':usuario_id'] = $usuarioId;
-        }
-        if ($itemComCa !== null && $itemComCa === 1) {
-            $where[] = "ep.epi_ca IS NOT NULL AND ep.epi_ca != ''";
+        if (empty($dataInicial) || empty($dataFinal)) {
+            Response::json(false, "As datas de início e fim são obrigatórias.", null, 400);
         }
 
-        $whereSql = implode(' AND ', $where);
+        // Valida se as datas estão corretas
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}(\s\d{2}:\d{2}:\d{2})?$/', $dataInicial) ||
+            !preg_match('/^\d{4}-\d{2}-\d{2}(\s\d{2}:\d{2}:\d{2})?$/', $dataFinal)) {
+            Response::json(false, "Formato de data inválido.", null, 400);
+        }
 
-        $allowedSorts = [
-            'data_desc' => 'e.entr_data_entrega DESC',
-            'data_asc' => 'e.entr_data_entrega ASC',
-            'funcionario' => 'f.fun_nome ASC',
-            'epi' => 'ep.epi_nome ASC',
-        ];
-        $orderSql = $allowedSorts[$ordenacao] ?? 'e.entr_data_entrega DESC';
+        // Ajusta horas se necessário
+        if (strlen($dataInicial) === 10) {
+            $dataInicial .= ' 00:00:00';
+        }
+        if (strlen($dataFinal) === 10) {
+            $dataFinal .= ' 23:59:59';
+        }
 
-        $baseQuery = "FROM Itens_Entrega i
-                      JOIN Entrega_EPIs e ON i.entr_id = e.entr_id
-                      JOIN EPIs ep ON i.epi_id = ep.epi_id
-                      JOIN Funcionarios f ON e.fun_id = f.fun_id
-                      JOIN Usuarios u ON e.usu_id = u.usu_id
-                      WHERE {$whereSql}";
+        if (strtotime($dataInicial) > strtotime($dataFinal)) {
+            Response::json(false, "A data inicial não pode ser posterior à data final.", null, 400);
+        }
 
-        $countSql = "SELECT COUNT(*) as total {$baseQuery}";
-        $countStmt = $this->db->prepare($countSql);
-        $countStmt->execute($bindings);
-        $totalRegistros = (int)$countStmt->fetchColumn();
-        $totalPaginas = max(1, (int)ceil($totalRegistros / $limite));
+        // Parâmetros opcionais de filtros
+        $funcId = isset($_GET['funcionario_id']) && $_GET['funcionario_id'] !== '' ? (int)$_GET['funcionario_id'] : null;
+        $departamento = isset($_GET['departamento']) && $_GET['departamento'] !== '' ? trim($_GET['departamento']) : null;
+        $cargo = isset($_GET['cargo']) && $_GET['cargo'] !== '' ? trim($_GET['cargo']) : null;
+        $epiId = isset($_GET['epi_id']) && $_GET['epi_id'] !== '' ? (int)$_GET['epi_id'] : null;
+        $categoria = isset($_GET['categoria']) && $_GET['categoria'] !== '' ? trim($_GET['categoria']) : null;
+        $motivo = isset($_GET['motivo']) && $_GET['motivo'] !== '' ? trim($_GET['motivo']) : null;
+        $usuarioId = isset($_GET['usuario_id']) && $_GET['usuario_id'] !== '' ? (int)$_GET['usuario_id'] : null;
+        $itemComCa = isset($_GET['item_com_ca']) && $_GET['item_com_ca'] !== '' ? (int)$_GET['item_com_ca'] : null;
+
+        // Status das entregas a considerar (Padrão: FINALIZADA)
+        $statusEntrega = isset($_GET['status_entrega']) && $_GET['status_entrega'] !== '' ? trim($_GET['status_entrega']) : 'FINALIZADA';
+
+        // Paginação
+        $pagina = isset($_GET['pagina']) ? max(1, (int)$_GET['pagina']) : 1;
+        $limite = isset($_GET['limite']) ? max(1, (int)$_GET['limite']) : 25;
         $offset = ($pagina - 1) * $limite;
 
-        $registrosSql = "SELECT i.item_id, e.entr_id, e.epi_id,
-                            e.entr_data_entrega, e.entr_status, e.entr_motivo,
-                            ep.epi_nome, ep.epi_fabricante, NULL as epi_modelo,
-                            ep.epi_ca, ep.epi_vencimento_ca, ep.epi_validade_uso_dias as epi_vida_util,
-                            ep.epi_valor, (i.item_quantidade * ep.epi_valor) as valor_total,
-                            i.item_quantidade, i.item_tamanho, i.item_status, i.item_data_devolucao,
-                            i.item_motivo_entrega,
-                            f.fun_nome, f.fun_cpf, f.fun_esocial, f.fun_departamento, f.fun_cargo,
-                            u.usu_login,
-                            i.item_devolucao_motivo, i.item_devolucao_condicao,
-                            i.item_devolucao_destino, i.item_devolucao_obs,
-                            i.item_devolucao_vinculo_entrega_id, i.item_devolucao_vinculo_item_id,
-                            i.item_devolucao_tipo_operacao
-                         {$baseQuery}
-                         ORDER BY {$orderSql}
-                         LIMIT :limite OFFSET :offset";
+        // Ordenação
+        $ordenacao = $_GET['ordenacao'] ?? 'data_desc';
+        $orderBy = "e.entr_data_entrega DESC";
+        if ($ordenacao === 'data_asc') $orderBy = "e.entr_data_entrega ASC";
+        else if ($ordenacao === 'funcionario') $orderBy = "f.fun_nome ASC";
+        else if ($ordenacao === 'epi') $orderBy = "COALESCE(i.item_epi_nome_snapshot, ep.epi_nome) ASC";
+        else if ($ordenacao === 'setor') $orderBy = "f.fun_departamento ASC";
+        else if ($ordenacao === 'quantidade') $orderBy = "i.item_quantidade DESC";
+        else if ($ordenacao === 'motivo') $orderBy = "COALESCE(i.item_motivo_entrega, e.entr_motivo) ASC";
 
-        $regStmt = $this->db->prepare($registrosSql);
-        foreach ($bindings as $key => $val) {
-            $regStmt->bindValue($key, $val);
-        }
-        $regStmt->bindValue(':limite', $limite, PDO::PARAM_INT);
-        $regStmt->bindValue(':offset', $offset, PDO::PARAM_INT);
-        $regStmt->execute();
-        $registros = $regStmt->fetchAll();
+        // Query Base
+        $whereClauses = ["e.entr_data_entrega BETWEEN :data_inicial AND :data_final"];
+        $params = [
+            ':data_inicial' => $dataInicial,
+            ':data_final' => $dataFinal
+        ];
 
-        $indicadoresSql = "SELECT
-                            COUNT(DISTINCT e.entr_id) as total_entregas,
-                            COALESCE(SUM(i.item_quantidade), 0) as total_unidades,
-                            COUNT(DISTINCT e.fun_id) as funcionarios_atendidos,
-                            COUNT(DISTINCT i.epi_id) as epis_diferentes,
-                            COALESCE(SUM(i.item_quantidade * ep.epi_valor), 0) as custo_total,
-                            COALESCE(SUM(CASE WHEN i.item_data_devolucao IS NOT NULL THEN i.item_quantidade ELSE 0 END), 0) as total_devolucoes,
-                            COALESCE(SUM(CASE WHEN i.item_devolucao_tipo_operacao = 'SUBSTITUICAO' THEN i.item_quantidade ELSE 0 END), 0) as total_substituicoes
-                         {$baseQuery}";
-        $indStmt = $this->db->prepare($indicadoresSql);
-        foreach ($bindings as $key => $val) {
-            $indStmt->bindValue($key, $val);
+        // Adiciona filtros se fornecidos
+        if ($statusEntrega !== 'TODAS') {
+            $whereClauses[] = "e.entr_status = :status_entrega";
+            $params[':status_entrega'] = $statusEntrega;
         }
-        $indStmt->execute();
-        $indicadores = $indStmt->fetch();
+        if ($funcId !== null) {
+            $whereClauses[] = "e.fun_id = :func_id";
+            $params[':func_id'] = $funcId;
+        }
+        if ($departamento !== null) {
+            $whereClauses[] = "f.fun_departamento LIKE :departamento";
+            $params[':departamento'] = '%' . $departamento . '%';
+        }
+        if ($cargo !== null) {
+            $whereClauses[] = "f.fun_cargo LIKE :cargo";
+            $params[':cargo'] = '%' . $cargo . '%';
+        }
+        if ($epiId !== null) {
+            $whereClauses[] = "i.epi_id = :epi_id";
+            $params[':epi_id'] = $epiId;
+        }
+        if ($categoria !== null) {
+            $whereClauses[] = "COALESCE(ep.epi_tipo_item, 'EPI_COM_CA') = :categoria";
+            $params[':categoria'] = $categoria;
+        }
+        if ($motivo !== null) {
+            $whereClauses[] = "(i.item_motivo_entrega LIKE :motivo OR e.entr_motivo LIKE :motivo)";
+            $params[':motivo'] = '%' . $motivo . '%';
+        }
+        if ($usuarioId !== null) {
+            $whereClauses[] = "e.usu_id = :usuario_id";
+            $params[':usuario_id'] = $usuarioId;
+        }
+        if ($itemComCa !== null) {
+            if ($itemComCa === 1) {
+                $whereClauses[] = "COALESCE(i.item_epi_ca_snapshot, ep.epi_ca) IS NOT NULL AND COALESCE(i.item_epi_ca_snapshot, ep.epi_ca) != ''";
+            } else {
+                $whereClauses[] = "(COALESCE(i.item_epi_ca_snapshot, ep.epi_ca) IS NULL OR COALESCE(i.item_epi_ca_snapshot, ep.epi_ca) = '')";
+            }
+        }
 
-        $porEpiSql = "SELECT ep.epi_nome as epi_nome,
-                            COALESCE(SUM(i.item_quantidade), 0) as quantidade,
-                            COUNT(DISTINCT e.fun_id) as funcionarios,
-                            COALESCE(SUM(i.item_quantidade * ep.epi_valor), 0) as custo_total
-                      {$baseQuery}
-                      GROUP BY ep.epi_id, ep.epi_nome
-                      ORDER BY quantidade DESC";
-        $peStmt = $this->db->prepare($porEpiSql);
-        foreach ($bindings as $key => $val) {
-            $peStmt->bindValue($key, $val);
-        }
-        $peStmt->execute();
-        $porEpi = $peStmt->fetchAll();
+        $whereSql = implode(" AND ", $whereClauses);
 
-        $porSetorSql = "SELECT f.fun_departamento as setor,
-                            COUNT(DISTINCT e.entr_id) as entregas,
-                            COALESCE(SUM(i.item_quantidade), 0) as unidades,
-                            COUNT(DISTINCT e.fun_id) as funcionarios
-                       {$baseQuery}
-                       GROUP BY f.fun_departamento
-                       ORDER BY unidades DESC";
-        $psStmt = $this->db->prepare($porSetorSql);
-        foreach ($bindings as $key => $val) {
-            $psStmt->bindValue($key, $val);
-        }
-        $psStmt->execute();
-        $porSetor = $psStmt->fetchAll();
+        // --- 1. SELEÇÃO DETALHADA DOS ITENS COM PAGINAÇÃO ---
+        $valorCol = $canViewCosts ? "COALESCE(i.item_epi_valor_snapshot, ep.epi_valor)" : "NULL";
+        $valorTotalCol = $canViewCosts ? "(i.item_quantidade * COALESCE(i.item_epi_valor_snapshot, ep.epi_valor))" : "NULL";
 
-        $porMotivoSql = "SELECT COALESCE(i.item_motivo_entrega, 'Não informado') as motivo,
-                            COALESCE(SUM(i.item_quantidade), 0) as quantidade,
-                            0 as percentual
-                         {$baseQuery}
-                         GROUP BY i.item_motivo_entrega
-                         ORDER BY quantidade DESC";
-        $pmStmt = $this->db->prepare($porMotivoSql);
-        foreach ($bindings as $key => $val) {
-            $pmStmt->bindValue($key, $val);
-        }
-        $pmStmt->execute();
-        $porMotivo = $pmStmt->fetchAll();
-        $totalUnidadesMotivo = array_sum(array_column($porMotivo, 'quantidade'));
-        foreach ($porMotivo as &$pm) {
-            $pm['percentual'] = $totalUnidadesMotivo > 0
-                ? round((float)$pm['quantidade'] * 100.0 / $totalUnidadesMotivo, 1)
-                : 0.0;
-        }
-        unset($pm);
+        $sqlItens = "SELECT 
+                        i.item_id, i.entr_id, i.epi_id, e.entr_data_entrega, e.entr_status, e.entr_motivo,
+                        COALESCE(i.item_epi_nome_snapshot, ep.epi_nome) as epi_nome,
+                        COALESCE(i.item_epi_fabricante_snapshot, ep.epi_fabricante) as epi_fabricante,
+                        COALESCE(i.item_epi_modelo_snapshot, ep.epi_modelo) as epi_modelo,
+                        COALESCE(i.item_epi_ca_snapshot, ep.epi_ca) as epi_ca,
+                        COALESCE(i.item_epi_validade_ca_snapshot, ep.epi_vencimento_ca) as epi_vencimento_ca,
+                        COALESCE(i.item_epi_vida_util_snapshot, ep.epi_vida_util) as epi_vida_util,
+                        $valorCol as epi_valor,
+                        $valorTotalCol as valor_total,
+                        i.item_quantidade, i.item_tamanho, i.item_status, i.item_data_devolucao,
+                        COALESCE(i.item_motivo_entrega, e.entr_motivo) as item_motivo_entrega,
+                        f.fun_nome, f.fun_cpf, f.fun_esocial, f.fun_departamento, f.fun_cargo,
+                        u.usu_login,
+                        i.item_devolucao_motivo, i.item_devolucao_condicao, i.item_devolucao_destino, i.item_devolucao_obs,
+                        i.item_devolucao_vinculo_entrega_id, i.item_devolucao_vinculo_item_id, i.item_devolucao_tipo_operacao
+                     FROM itens_entrega i
+                     JOIN entrega_epis e ON i.entr_id = e.entr_id
+                     LEFT JOIN funcionarios f ON e.fun_id = f.fun_id
+                     LEFT JOIN epis ep ON i.epi_id = ep.epi_id
+                     LEFT JOIN usuarios u ON e.usu_id = u.usu_id
+                     WHERE $whereSql
+                     ORDER BY $orderBy
+                     LIMIT :limit OFFSET :offset";
 
-        $porFunSql = "SELECT f.fun_nome as funcionario,
-                         COUNT(DISTINCT i.item_id) as itens,
-                         COALESCE(SUM(i.item_quantidade), 0) as unidades
-                      {$baseQuery}
-                      GROUP BY f.fun_id, f.fun_nome
-                      ORDER BY unidades DESC";
-        $pfStmt = $this->db->prepare($porFunSql);
-        foreach ($bindings as $key => $val) {
-            $pfStmt->bindValue($key, $val);
+        $stmtItens = $this->db->prepare($sqlItens);
+        $stmtItens->bindValue(':limit', $limite, PDO::PARAM_INT);
+        $stmtItens->bindValue(':offset', $offset, PDO::PARAM_INT);
+        foreach ($params as $key => $val) {
+            $stmtItens->bindValue($key, $val);
         }
-        $pfStmt->execute();
-        $porFuncionario = $pfStmt->fetchAll();
+        $stmtItens->execute();
+        $registros = $stmtItens->fetchAll();
 
-        $data = [
+        // --- 2. CONTABILIZAÇÃO DO TOTAL DE REGISTROS ---
+        $sqlTotal = "SELECT COUNT(*) as total_linhas
+                     FROM itens_entrega i
+                     JOIN entrega_epis e ON i.entr_id = e.entr_id
+                     LEFT JOIN funcionarios f ON e.fun_id = f.fun_id
+                     LEFT JOIN epis ep ON i.epi_id = ep.epi_id
+                     WHERE $whereSql";
+        $stmtTotal = $this->db->prepare($sqlTotal);
+        foreach ($params as $key => $val) {
+            $stmtTotal->bindValue($key, $val);
+        }
+        $stmtTotal->execute();
+        $totalLinhas = (int)$stmtTotal->fetch()['total_linhas'];
+
+        // --- 3. RESUMO GERENCIAL ---
+        $costSum = $canViewCosts ? "SUM(i.item_quantidade * COALESCE(i.item_epi_valor_snapshot, ep.epi_valor))" : "NULL";
+        $sqlResumo = "SELECT 
+                        COUNT(DISTINCT e.entr_id) as total_entregas,
+                        SUM(i.item_quantidade) as total_unidades,
+                        COUNT(DISTINCT e.fun_id) as funcionarios_atendidos,
+                        COUNT(DISTINCT i.epi_id) as epis_diferentes,
+                        $costSum as custo_total,
+                        SUM(CASE WHEN i.item_data_devolucao IS NOT NULL THEN i.item_quantidade ELSE 0 END) as total_devolucoes,
+                        SUM(CASE WHEN i.item_devolucao_vinculo_entrega_id IS NOT NULL OR e.entr_substituicao_vinculada = 1 THEN i.item_quantidade ELSE 0 END) as total_substituicoes
+                      FROM itens_entrega i
+                      JOIN entrega_epis e ON i.entr_id = e.entr_id
+                      LEFT JOIN funcionarios f ON e.fun_id = f.fun_id
+                      LEFT JOIN epis ep ON i.epi_id = ep.epi_id
+                      WHERE $whereSql";
+        $stmtResumo = $this->db->prepare($sqlResumo);
+        foreach ($params as $key => $val) {
+            $stmtResumo->bindValue($key, $val);
+        }
+        $stmtResumo->execute();
+        $resumo = $stmtResumo->fetch();
+
+        // --- 4. AGRUPAMENTO POR EPI ---
+        $epiCusto = $canViewCosts ? "SUM(i.item_quantidade * COALESCE(i.item_epi_valor_snapshot, ep.epi_valor))" : "NULL";
+        $sqlGroupEpi = "SELECT 
+                             COALESCE(i.item_epi_nome_snapshot, ep.epi_nome) as epi_nome,
+                             SUM(i.item_quantidade) as quantidade,
+                             COUNT(DISTINCT e.fun_id) as funcionarios,
+                             $epiCusto as custo_total
+                         FROM itens_entrega i
+                         JOIN entrega_epis e ON i.entr_id = e.entr_id
+                         LEFT JOIN funcionarios f ON e.fun_id = f.fun_id
+                         LEFT JOIN epis ep ON i.epi_id = ep.epi_id
+                         WHERE $whereSql
+                         GROUP BY COALESCE(i.item_epi_nome_snapshot, ep.epi_nome)
+                         ORDER BY quantidade DESC, epi_nome ASC";
+        $stmtGroupEpi = $this->db->prepare($sqlGroupEpi);
+        foreach ($params as $key => $val) {
+            $stmtGroupEpi->bindValue($key, $val);
+        }
+        $stmtGroupEpi->execute();
+        $agrupamentoEpi = $stmtGroupEpi->fetchAll();
+
+        // --- 5. AGRUPAMENTO POR SETOR ---
+        $sqlGroupSetor = "SELECT 
+                             COALESCE(f.fun_departamento, 'NÃO INFORMADO') as setor,
+                             COUNT(DISTINCT e.entr_id) as entregas,
+                             SUM(i.item_quantidade) as unidades,
+                             COUNT(DISTINCT e.fun_id) as funcionarios
+                           FROM itens_entrega i
+                           JOIN entrega_epis e ON i.entr_id = e.entr_id
+                           LEFT JOIN funcionarios f ON e.fun_id = f.fun_id
+                           WHERE $whereSql
+                           GROUP BY f.fun_departamento
+                           ORDER BY unidades DESC, setor ASC";
+        $stmtGroupSetor = $this->db->prepare($sqlGroupSetor);
+        foreach ($params as $key => $val) {
+            $stmtGroupSetor->bindValue($key, $val);
+        }
+        $stmtGroupSetor->execute();
+        $agrupamentoSetor = $stmtGroupSetor->fetchAll();
+
+        // --- 6. AGRUPAMENTO POR MOTIVO ---
+        $sqlGroupMotivo = "SELECT 
+                             COALESCE(i.item_motivo_entrega, e.entr_motivo, 'OUTRO') as motivo,
+                             SUM(i.item_quantidade) as quantidade
+                            FROM itens_entrega i
+                            JOIN entrega_epis e ON i.entr_id = e.entr_id
+                            LEFT JOIN funcionarios f ON e.fun_id = f.fun_id
+                            WHERE $whereSql
+                            GROUP BY motivo
+                            ORDER BY quantidade DESC";
+        $stmtGroupMotivo = $this->db->prepare($sqlGroupMotivo);
+        foreach ($params as $key => $val) {
+            $stmtGroupMotivo->bindValue($key, $val);
+        }
+        $stmtGroupMotivo->execute();
+        $agrupamentoMotivo = $stmtGroupMotivo->fetchAll();
+
+        $totalQtdeMotivos = array_sum(array_column($agrupamentoMotivo, 'quantidade'));
+        foreach ($agrupamentoMotivo as &$mot) {
+            $mot['percentual'] = $totalQtdeMotivos > 0 ? round(($mot['quantidade'] / $totalQtdeMotivos) * 100, 2) : 0;
+        }
+
+        // --- 7. AGRUPAMENTO POR FUNCIONÁRIO ---
+        $sqlGroupFunc = "SELECT 
+                             COALESCE(f.fun_nome, 'DESCONHECIDO') as funcionario,
+                             COUNT(DISTINCT i.item_id) as itens,
+                             SUM(i.item_quantidade) as unidades
+                           FROM itens_entrega i
+                           JOIN entrega_epis e ON i.entr_id = e.entr_id
+                           LEFT JOIN funcionarios f ON e.fun_id = f.fun_id
+                           WHERE $whereSql
+                           GROUP BY f.fun_nome
+                           ORDER BY unidades DESC, funcionario ASC
+                           LIMIT 15";
+        $stmtGroupFunc = $this->db->prepare($sqlGroupFunc);
+        foreach ($params as $key => $val) {
+            $stmtGroupFunc->bindValue($key, $val);
+        }
+        $stmtGroupFunc->execute();
+        $agrupamentoFuncionario = $stmtGroupFunc->fetchAll();
+
+        // --- AUDITORIA ---
+        $acaoAuditoria = "GERACAO_RELATORIO";
+        if (isset($_GET['is_pdf']) && (int)$_GET['is_pdf'] === 1) {
+            $acaoAuditoria = "EXPORTACAO_PDF";
+        } else if (isset($_GET['is_print']) && (int)$_GET['is_print'] === 1) {
+            $acaoAuditoria = "IMPRESSAO_RELATORIO";
+        }
+
+        $detalhesLog = "Relatório Geral de EPIs consultado para o período de " . date('d/m/Y', strtotime($dataInicial)) . " a " . date('d/m/Y', strtotime($dataFinal)) . ". Filtros: " . json_encode($_GET, JSON_UNESCAPED_UNICODE);
+        Audit::log($acaoAuditoria, "Itens_Entrega", null, json_encode(['ocorrencia' => $detalhesLog], JSON_UNESCAPED_UNICODE));
+
+        // --- RETORNO DOS DADOS ---
+        Response::json(true, "Relatório Geral de EPIs gerado.", [
             'paginacao' => [
                 'pagina' => $pagina,
                 'limite' => $limite,
-                'total_registros' => $totalRegistros,
-                'total_paginas' => $totalPaginas,
+                'total_registros' => $totalLinhas,
+                'total_paginas' => ceil($totalLinhas / $limite)
             ],
             'indicadores' => [
-                'total_entregas' => (int)($indicadores['total_entregas'] ?? 0),
-                'total_unidades' => (int)($indicadores['total_unidades'] ?? 0),
-                'funcionarios_atendidos' => (int)($indicadores['funcionarios_atendidos'] ?? 0),
-                'epis_diferentes' => (int)($indicadores['epis_diferentes'] ?? 0),
-                'custo_total' => $permiteCustos ? (float)($indicadores['custo_total'] ?? 0) : null,
-                'total_devolucoes' => (int)($indicadores['total_devolucoes'] ?? 0),
-                'total_substituicoes' => (int)($indicadores['total_substituicoes'] ?? 0),
+                'total_entregas' => (int)($resumo['total_entregas'] ?? 0),
+                'total_unidades' => (int)($resumo['total_unidades'] ?? 0),
+                'funcionarios_atendidos' => (int)($resumo['funcionarios_atendidos'] ?? 0),
+                'epis_diferentes' => (int)($resumo['epis_diferentes'] ?? 0),
+                'custo_total' => $canViewCosts ? (float)($resumo['custo_total'] ?? 0.0) : null,
+                'total_devolucoes' => (int)($resumo['total_devolucoes'] ?? 0),
+                'total_substituicoes' => (int)($resumo['total_substituicoes'] ?? 0)
             ],
             'agrupamentos' => [
-                'por_epi' => $porEpi,
-                'por_setor' => $porSetor,
-                'por_motivo' => $porMotivo,
-                'por_funcionario' => $porFuncionario,
+                'por_epi' => $agrupamentoEpi,
+                'por_setor' => $agrupamentoSetor,
+                'por_motivo' => $agrupamentoMotivo,
+                'por_funcionario' => $agrupamentoFuncionario
             ],
             'registros' => $registros,
-            'permite_visualizar_custos' => $permiteCustos,
-        ];
-
-        Response::json(true, "Relatório de consumo de EPIs gerado com sucesso.", $data);
+            'permite_visualizar_custos' => $canViewCosts
+        ]);
     }
 
+    /**
+     * GET /relatorios/epis/consumo
+     * Relatório de consumo por EPI ou Todos os EPIs
+     */
+    public function relatorioConsumoEpis(): void {
+        $tipo = $_GET['tipo_relatorio'] ?? 'ESPECIFICO';
+        if ($tipo === 'TODOS') {
+            $_GET['epi_id'] = null; // ignora epi_id
+        } else {
+            // No modo específico, exige epi_id
+            if (!isset($_GET['epi_id']) || $_GET['epi_id'] === '') {
+                Response::json(false, "O parâmetro epi_id é obrigatório para o relatório específico.", null, 400);
+            }
+        }
+        $this->relatorioGeralEpis();
+    }
 }

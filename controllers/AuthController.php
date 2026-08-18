@@ -54,12 +54,13 @@ class AuthController {
         // Verifica bloqueio de conta
         if ($this->getUsuarioModel()->isLocked($user, $lockoutTime)) {
             $bloqueioAte = date('H:i:s', strtotime($user['usu_data_bloqueio']) + $lockoutTime);
-            Audit::log("Tentativa de login em conta bloqueada", "Usuarios", (int)$user['usu_id'], "Tentativa para o login: " . $login);
+            $detalhesLog = json_encode(['ocorrencia' => "Tentativa de login em conta bloqueada para o usuário: " . $login], JSON_UNESCAPED_UNICODE);
+            Audit::log("LOGIN", "Usuarios", (int)$user['usu_id'], $detalhesLog);
             Response::json(false, "Esta conta está temporariamente bloqueada devido a excesso de tentativas. Tente novamente após as " . $bloqueioAte . ".", null, 403);
         }
 
-        // Valida senha
-        if (password_verify($senha, $user['usu_senha_hash'])) {
+        // Valida senha usando SHA-256 + Salt
+        if (\Security\PasswordService::verify($senha, $user['usu_senha_salt'] ?? '', $user['usu_senha_hash'])) {
             // Zera falhas se existirem
             if ((int)$user['usu_tentativas_falha'] > 0) {
                 $this->getUsuarioModel()->resetFailAttempts($login);
@@ -69,7 +70,8 @@ class AuthController {
             $token = Auth::generateToken($user, $secretKey, $tokenTtl);
 
             // Log de auditoria do sucesso
-            Audit::log("Login realizado com sucesso", "Usuarios", (int)$user['usu_id'], null, (int)$user['usu_id']);
+            $detalhesLog = json_encode(['ocorrencia' => "Login realizado com sucesso."], JSON_UNESCAPED_UNICODE);
+            Audit::log("LOGIN", "Usuarios", (int)$user['usu_id'], $detalhesLog, (int)$user['usu_id']);
 
             $exigeTroca = (int)($user['usu_exige_troca_senha'] ?? 0) === 1;
             $msg = $exigeTroca ? "Login realizado com sucesso. Troca de senha obrigatória." : "Login realizado com sucesso.";
@@ -89,7 +91,8 @@ class AuthController {
             $attempts = $this->getUsuarioModel()->incrementFailAttempts($login, $maxAttempts);
             
             // Log de auditoria da falha
-            Audit::log("Tentativa de login com senha incorreta", "Usuarios", (int)$user['usu_id'], "Tentativa {$attempts} de {$maxAttempts}");
+            $detalhesLog = json_encode(['ocorrencia' => "Tentativa de login com senha incorreta. Tentativa {$attempts} de {$maxAttempts}."], JSON_UNESCAPED_UNICODE);
+            Audit::log("LOGIN", "Usuarios", (int)$user['usu_id'], $detalhesLog);
 
             if ($attempts >= $maxAttempts) {
                 Response::json(false, "Usuário ou senha incorretos. A conta foi bloqueada temporariamente por 15 minutos.", null, 401);
@@ -105,7 +108,8 @@ class AuthController {
      */
     public function logout(): void {
         $currentUser = Auth::requireAuth();
-        Audit::log("Logout realizado pelo usuário", "Usuarios", (int)$currentUser['usu_id']);
+        $detalhesLog = json_encode(['ocorrencia' => "Logout realizado pelo usuário."], JSON_UNESCAPED_UNICODE);
+        Audit::log("LOGOUT", "Usuarios", (int)$currentUser['usu_id'], $detalhesLog);
         Response::json(true, "Logout realizado com sucesso.");
     }
 
@@ -146,8 +150,8 @@ class AuthController {
             Response::json(false, "Usuário não encontrado.", null, 404);
         }
 
-        // Valida senha atual
-        if (!password_verify($senhaAtual, $user['usu_senha_hash'])) {
+        // Valida senha atual usando SHA-256 + Salt
+        if (!\Security\PasswordService::verify($senhaAtual, $user['usu_senha_salt'] ?? '', $user['usu_senha_hash'])) {
             Response::json(false, "A senha atual informada está incorreta.", null, 400);
         }
 
@@ -174,11 +178,70 @@ class AuthController {
             // Reseta tentativas de login falhas
             $this->getUsuarioModel()->resetFailAttempts($user['usu_login']);
 
-            Audit::log("Senha alterada no primeiro acesso", "Usuarios", (int)$user['usu_id']);
+            $detalhesLog = json_encode(['ocorrencia' => "Senha do usuário redefinida."], JSON_UNESCAPED_UNICODE);
+            Audit::log("REDEFINIÇÃO_DE_SENHA", "Usuarios", (int)$user['usu_id'], $detalhesLog);
 
             Response::json(true, "Senha alterada com sucesso.");
         } catch (Exception $e) {
             Response::json(false, "Erro ao alterar a senha: " . $e->getMessage(), null, 500);
+        }
+    }
+
+    /**
+     * POST /auth/recuperar-senha
+     *
+     * Redefine a senha de um usuário no fluxo público de recuperação de senha.
+     * O usuário não precisa estar autenticado: a identidade é informada no corpo.
+     */
+    public function recuperarSenha(): void {
+        $input = json_decode(file_get_contents('php://input'), true);
+
+        if (!isset($input['usu_login']) || !isset($input['nova_senha']) || !isset($input['confirmar_senha'])) {
+            Response::json(false, "Usuário, nova senha e confirmação são obrigatórios.", null, 400);
+        }
+
+        $login = trim($input['usu_login']);
+        $novaSenha = $input['nova_senha'];
+        $confirmarSenha = $input['confirmar_senha'];
+
+        if ($login === '') {
+            Response::json(false, "Informe o usuário.", null, 400);
+        }
+
+        $user = $this->getUsuarioModel()->findByLogin($login);
+        if (!$user) {
+            Response::json(false, "Usuário não encontrado.", null, 404);
+        }
+
+        if ($user['usu_status'] !== 'ATIVO') {
+            Response::json(false, "Este usuário está inativo e não pode ter a senha recuperada.", null, 403);
+        }
+
+        if ($novaSenha !== $confirmarSenha) {
+            Response::json(false, "A nova senha e a confirmação de senha não coincidem.", null, 400);
+        }
+
+        if (strlen($novaSenha) < 6) {
+            Response::json(false, "A nova senha deve ter no mínimo 6 caracteres.", null, 400);
+        }
+        if (!preg_match('/[a-zA-Z]/', $novaSenha) || !preg_match('/[0-9]/', $novaSenha)) {
+            Response::json(false, "A nova senha deve conter pelo menos uma letra e um número.", null, 400);
+        }
+
+        try {
+            $this->getUsuarioModel()->update((int)$user['usu_id'], [
+                'senha' => $novaSenha,
+                'usu_exige_troca_senha' => 0
+            ]);
+
+            $this->getUsuarioModel()->resetFailAttempts($user['usu_login']);
+
+            $detalhesLog = json_encode(['ocorrencia' => "Senha redefinida pelo fluxo de recuperação de senha para o usuário: " . $user['usu_login']], JSON_UNESCAPED_UNICODE);
+            Audit::log("REDEFINIÇÃO_DE_SENHA", "Usuarios", (int)$user['usu_id'], $detalhesLog);
+
+            Response::json(true, "Senha redefinida com sucesso. Utilize a nova senha para acessar o sistema.");
+        } catch (Exception $e) {
+            Response::json(false, "Erro ao redefinir a senha: " . $e->getMessage(), null, 500);
         }
     }
 

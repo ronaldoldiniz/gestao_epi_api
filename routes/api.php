@@ -17,9 +17,10 @@ $router->add('POST', '/auth/login', 'AuthController@login');
 $router->add('POST', '/auth/logout', 'AuthController@logout'); // Protegido (Auth será checado internamente)
 $router->add('GET', '/auth/me', 'AuthController@me');         // Protegido (Auth será checado internamente)
 $router->add('POST', '/auth/alterar-senha-primeiro-acesso', 'AuthController@alterarSenhaPrimeiroAcesso'); // Protegido
+$router->add('POST', '/auth/recuperar-senha', 'AuthController@recuperarSenha'); // Público (fluxo de recuperação de senha)
 
 // ==========================================
-// ROTAS DE USUÁRIOS (Apenas ADMINISTRADOR)
+// ROTAS DE USUÁRIOS E AUDITORIA (Apenas ADMINISTRADOR)
 // ==========================================
 $router->add('GET', '/usuarios', 'UsuariosController@index', ['ADMINISTRADOR']);
 $router->add('GET', '/usuarios/{id}', 'UsuariosController@show', ['ADMINISTRADOR']);
@@ -27,6 +28,9 @@ $router->add('POST', '/usuarios', 'UsuariosController@store', ['ADMINISTRADOR'])
 $router->add('PUT', '/usuarios/{id}', 'UsuariosController@update', ['ADMINISTRADOR']);
 $router->add('POST', '/usuarios/{id}/redefinir-senha', 'UsuariosController@redefinirSenha', ['ADMINISTRADOR']);
 $router->add('DELETE', '/usuarios/{id}', 'UsuariosController@destroy', ['ADMINISTRADOR']);
+$router->add('GET', '/logs', 'LogsController@index', ['ADMINISTRADOR']);
+$router->add('GET', '/logs/{id}', 'LogsController@show', ['ADMINISTRADOR']);
+$router->add('POST', '/logs/registrar-exportacao', 'LogsController@registrarExportacao', ['ADMINISTRADOR']);
 
 // ==========================================
 // ROTAS DE FUNCIONÁRIOS
@@ -53,6 +57,7 @@ $router->add('DELETE', '/epis/{id}', 'EpisController@destroy', ['ADMINISTRADOR',
 // ROTAS DE ASSINATURA ELETRÔNICA
 // ==========================================
 $router->add('POST', '/assinaturas', 'AssinaturasController@store', ['ADMINISTRADOR', 'RH_ADMINISTRATIVO', 'ALMOXARIFE_OPERADOR']);
+$router->add('GET', '/assinaturas/funcionario/{fun_id}', 'AssinaturasController@showByFuncionario', ['ADMINISTRADOR', 'RH_ADMINISTRATIVO', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR', 'GESTOR']);
 $router->add('PUT', '/assinaturas/{id}', 'AssinaturasController@update', ['ADMINISTRADOR', 'RH_ADMINISTRATIVO', 'ALMOXARIFE_OPERADOR']);
 $router->add('POST', '/assinaturas/validar', 'AssinaturasController@validar', ['ADMINISTRADOR', 'RH_ADMINISTRATIVO', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR']);
 $router->add('POST', '/assinaturas/redefinir', 'AssinaturasController@redefinir', ['ADMINISTRADOR', 'RH_ADMINISTRATIVO', 'ALMOXARIFE_OPERADOR']);
@@ -67,11 +72,9 @@ $router->add('GET', '/entregas/{id}', 'EntregasController@show', ['ADMINISTRADOR
 $router->add('GET', '/entregas/funcionario/{fun_id}', 'EntregasController@showByFuncionario', ['ADMINISTRADOR', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR', 'GESTOR']);
 $router->add('POST', '/entregas', 'EntregasController@store', ['ADMINISTRADOR', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR']);
 $router->add('POST', '/entregas/{id}/cancelar', 'EntregasController@cancelar', ['ADMINISTRADOR', 'TECNICO_SST']);
-
-// ==========================================
-// ROTAS DE OPERAÇÕES (Reconciliação)
-// ==========================================
-$router->add('GET', '/operacoes/{client_operation_id}/status', 'OperacoesController@status', ['ADMINISTRADOR', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR']);
+$router->add('POST', '/entregas/item/{id}/corrigir', 'EntregasController@corrigirItem', ['ADMINISTRADOR']);
+$router->add('GET', '/operacoes/{client_operation_id}/status', 'EntregasController@checkStatus', ['ADMINISTRADOR', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR']);
+$router->add('GET', '/sync/status/{client_operation_id}', 'EntregasController@checkStatus', ['ADMINISTRADOR', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR']);
 
 // ==========================================
 // ROTAS DE DEVOLUÇÕES
@@ -87,7 +90,7 @@ $router->add('GET', '/relatorios/entregas/funcionario/{fun_id}', 'RelatoriosCont
 $router->add('GET', '/relatorios/epis-vencidos', 'RelatoriosController@episVencidos', ['ADMINISTRADOR', 'TECNICO_SST', 'GESTOR']);
 $router->add('GET', '/relatorios/ca-vencidos', 'RelatoriosController@caVencidos', ['ADMINISTRADOR', 'TECNICO_SST', 'GESTOR']);
 $router->add('GET', '/relatorios/custo-mensal', 'RelatoriosController@custoMensal', ['ADMINISTRADOR', 'GESTOR']);
-$router->add('GET', '/relatorios/epis/consumo', 'RelatoriosController@consumoEpis', ['ADMINISTRADOR', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR', 'GESTOR']);
+$router->add('GET', '/relatorios/epis/consumo', 'RelatoriosController@relatorioConsumoEpis', ['ADMINISTRADOR', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR', 'GESTOR']);
 
 // ==========================================
 // ROTAS DE DASHBOARD

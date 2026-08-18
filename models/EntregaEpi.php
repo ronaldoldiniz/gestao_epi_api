@@ -19,9 +19,9 @@ class EntregaEpi {
      */
     public function findAll(): array {
         $sql = "SELECT e.*, f.fun_nome, u.usu_login 
-                FROM Entrega_EPIs e
-                JOIN Funcionarios f ON e.fun_id = f.fun_id
-                JOIN Usuarios u ON e.usu_id = u.usu_id
+                FROM entrega_epis e
+                JOIN funcionarios f ON e.fun_id = f.fun_id
+                JOIN usuarios u ON e.usu_id = u.usu_id
                 ORDER BY e.entr_data_entrega DESC";
         $stmt = $this->db->query($sql);
         return $stmt->fetchAll();
@@ -32,9 +32,9 @@ class EntregaEpi {
      */
     public function findById(int $id): ?array {
         $sql = "SELECT e.*, f.fun_nome, u.usu_login 
-                FROM Entrega_EPIs e
-                JOIN Funcionarios f ON e.fun_id = f.fun_id
-                JOIN Usuarios u ON e.usu_id = u.usu_id
+                FROM entrega_epis e
+                JOIN funcionarios f ON e.fun_id = f.fun_id
+                JOIN usuarios u ON e.usu_id = u.usu_id
                 WHERE e.entr_id = :id 
                 LIMIT 1";
         $stmt = $this->db->prepare($sql);
@@ -48,8 +48,8 @@ class EntregaEpi {
      */
     public function findByFuncionarioId(int $funId): array {
         $sql = "SELECT e.*, u.usu_login 
-                FROM Entrega_EPIs e
-                JOIN Usuarios u ON e.usu_id = u.usu_id
+                FROM entrega_epis e
+                JOIN usuarios u ON e.usu_id = u.usu_id
                 WHERE e.fun_id = :fun_id
                 ORDER BY e.entr_data_entrega DESC";
         $stmt = $this->db->prepare($sql);
@@ -61,14 +61,16 @@ class EntregaEpi {
      * Insere o cabeçalho da entrega de EPIs (usado dentro de transação)
      */
     public function create(array $data): int {
-        $sql = "INSERT INTO Entrega_EPIs (
+        $sql = "INSERT INTO entrega_epis (
                     fun_id, usu_id, ass_id, entr_data_entrega, entr_hash_assinatura, 
                     entr_termo_ciencia, entr_status, entr_status_sinc, entr_validacao_senha, entr_motivo,
-                    entr_client_operation_id
+                    entr_client_operation_id,
+                    termo_id, termo_versao, texto_termo_snapshot, data_hora_aceite, metodo_aceite, hash_termo
                 ) VALUES (
                     :fun_id, :usu_id, :ass_id, NOW(), :hash_assinatura, 
                     :termo_ciencia, :status, :status_sinc, :validacao_senha, :motivo,
-                    :client_operation_id
+                    :client_operation_id,
+                    :termo_id, :termo_versao, :texto_termo_snapshot, :data_hora_aceite, :metodo_aceite, :hash_termo
                 )";
         
         $stmt = $this->db->prepare($sql);
@@ -82,33 +84,23 @@ class EntregaEpi {
             ':status_sinc' => $data['entr_status_sinc'] ?? 'SINCRONIZADO',
             ':validacao_senha' => $data['entr_validacao_senha'] ?? 'VALIDADA',
             ':motivo' => $data['entr_motivo'] ?? null,
-            ':client_operation_id' => $data['client_operation_id'] ?? null
+            ':client_operation_id' => $data['client_operation_id'] ?? null,
+            ':termo_id' => $data['termo_id'] ?? null,
+            ':termo_versao' => $data['termo_versao'] ?? null,
+            ':texto_termo_snapshot' => $data['texto_termo_snapshot'] ?? null,
+            ':data_hora_aceite' => $data['data_hora_aceite'] ?? null,
+            ':metodo_aceite' => $data['metodo_aceite'] ?? null,
+            ':hash_termo' => $data['hash_termo'] ?? null
         ]);
 
         return (int)$this->db->lastInsertId();
     }
 
     /**
-     * Busca uma entrega pelo client_operation_id (usado para reconciliação)
-     */
-    public function findByClientOperationId(string $clientOperationId): ?array {
-        $sql = "SELECT e.*, f.fun_nome, u.usu_login 
-                FROM Entrega_EPIs e
-                JOIN Funcionarios f ON e.fun_id = f.fun_id
-                JOIN Usuarios u ON e.usu_id = u.usu_id
-                WHERE e.entr_client_operation_id = :client_operation_id 
-                LIMIT 1";
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute([':client_operation_id' => $clientOperationId]);
-        $entrega = $stmt->fetch();
-        return $entrega ?: null;
-    }
-
-    /**
      * Cancela uma entrega de EPIs
      */
     public function cancel(int $id, string $motivo, int $usuId): bool {
-        $sql = "UPDATE Entrega_EPIs 
+        $sql = "UPDATE entrega_epis 
                 SET entr_status = 'CANCELADA', 
                     entr_motivo = :motivo,
                     usu_id = :usu_id 

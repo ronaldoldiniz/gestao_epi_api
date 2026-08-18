@@ -20,7 +20,10 @@ class UsuariosController {
      * GET /usuarios
      */
     public function index(): void {
-        Auth::requireAuth(['ADMINISTRADOR']);
+        $currentUser = Auth::requireAuth();
+        if ($currentUser['usu_perfil'] !== 'ADMINISTRADOR') {
+            Response::json(false, "Acesso negado. Esta funcionalidade é exclusiva do Administrador do Sistema.", null, 403);
+        }
         
         $usuarios = $this->usuarioModel->findAll();
         $resultado = array_map(function($user) {
@@ -41,7 +44,10 @@ class UsuariosController {
      * GET /usuarios/{id}
      */
     public function show(string $id): void {
-        Auth::requireAuth(['ADMINISTRADOR']);
+        $currentUser = Auth::requireAuth();
+        if ($currentUser['usu_perfil'] !== 'ADMINISTRADOR') {
+            Response::json(false, "Acesso negado. Esta funcionalidade é exclusiva do Administrador do Sistema.", null, 403);
+        }
         
         $usuario = $this->usuarioModel->findById((int)$id);
         if (!$usuario) {
@@ -64,7 +70,10 @@ class UsuariosController {
      * POST /usuarios
      */
     public function store(): void {
-        Auth::requireAuth(['ADMINISTRADOR']);
+        $currentUser = Auth::requireAuth();
+        if ($currentUser['usu_perfil'] !== 'ADMINISTRADOR') {
+            Response::json(false, "Acesso negado. Esta funcionalidade é exclusiva do Administrador do Sistema.", null, 403);
+        }
         
         $input = json_decode(file_get_contents('php://input'), true);
 
@@ -94,15 +103,16 @@ class UsuariosController {
         }
 
         try {
-            $userId = $this->usuarioModel->create([
+            $userData = [
                 'usu_login' => $login,
                 'senha' => $senha,
                 'usu_perfil' => $perfil,
                 'usu_status' => $input['usu_status'] ?? 'ATIVO',
                 'usu_exige_troca_senha' => $exigirTroca ? 1 : 0
-            ]);
+            ];
+            $userId = $this->usuarioModel->create($userData);
 
-            Audit::log("Criou um novo usuário", "Usuarios", $userId, "Login criado: " . $login);
+            \Core\Audit::logCadastro("Usuarios", $userId, $login, $userData);
 
             $novoUsuario = $this->usuarioModel->findById($userId);
             $resultado = [
@@ -123,7 +133,10 @@ class UsuariosController {
      * PUT /usuarios/{id}
      */
     public function update(string $id): void {
-        Auth::requireAuth(['ADMINISTRADOR']);
+        $currentUser = Auth::requireAuth();
+        if ($currentUser['usu_perfil'] !== 'ADMINISTRADOR') {
+            Response::json(false, "Acesso negado. Esta funcionalidade é exclusiva do Administrador do Sistema.", null, 403);
+        }
         
         $userId = (int)$id;
         $usuario = $this->usuarioModel->findById($userId);
@@ -136,7 +149,6 @@ class UsuariosController {
             Response::json(false, "Nenhum dado informado para atualização.", null, 400);
         }
 
-        // Valida perfil se informado
         if (isset($input['usu_perfil'])) {
             $perfisPermitidos = ['ADMINISTRADOR', 'RH_ADMINISTRATIVO', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR', 'GESTOR'];
             if (!in_array($input['usu_perfil'], $perfisPermitidos, true)) {
@@ -144,7 +156,6 @@ class UsuariosController {
             }
         }
 
-        // Verifica unicidade do login se alterado
         if (isset($input['usu_login']) && $input['usu_login'] !== $usuario['usu_login']) {
             if ($this->usuarioModel->findByLogin($input['usu_login'])) {
                 Response::json(false, "Este login de usuário já está em uso.", null, 409);
@@ -169,7 +180,23 @@ class UsuariosController {
 
         try {
             $this->usuarioModel->update($userId, $updatable);
-            Audit::log("Atualizou dados de um usuário", "Usuarios", $userId, "Campos editados: " . implode(", ", array_keys($updatable)));
+
+            // Determina a ação correspondente
+            $acao = "ALTERAÇÃO";
+            if (isset($updatable['usu_perfil']) && $updatable['usu_perfil'] !== $usuario['usu_perfil']) {
+                $acao = "ALTERAÇÃO_DE_PERFIL";
+            }
+            if (isset($updatable['usu_status'])) {
+                if ($updatable['usu_status'] === 'BLOQUEADO' && $usuario['usu_status'] !== 'BLOQUEADO') {
+                    $acao = "BLOQUEIO";
+                } elseif ($updatable['usu_status'] === 'ATIVO' && $usuario['usu_status'] === 'BLOQUEADO') {
+                    $acao = "DESBLOQUEIO";
+                } elseif ($updatable['usu_status'] === 'INATIVO' && $usuario['usu_status'] !== 'INATIVO') {
+                    $acao = "INATIVAÇÃO";
+                }
+            }
+            
+            \Core\Audit::compareAndLog($acao, "Usuarios", $userId, $usuario, $updatable);
 
             $atualizado = $this->usuarioModel->findById($userId);
             $resultado = [
@@ -190,7 +217,10 @@ class UsuariosController {
      * DELETE /usuarios/{id} (Exclusão lógica)
      */
     public function destroy(string $id): void {
-        $currentUser = Auth::requireAuth(['ADMINISTRADOR']);
+        $currentUser = Auth::requireAuth();
+        if ($currentUser['usu_perfil'] !== 'ADMINISTRADOR') {
+            Response::json(false, "Acesso negado. Esta funcionalidade é exclusiva do Administrador do Sistema.", null, 403);
+        }
         
         $userId = (int)$id;
         if ($userId === (int)$currentUser['usu_id']) {
@@ -204,7 +234,7 @@ class UsuariosController {
 
         try {
             $this->usuarioModel->delete($userId);
-            Audit::log("Inativou um usuário (Exclusão lógica)", "Usuarios", $userId, "Login inativado: " . $usuario['usu_login']);
+            \Core\Audit::logInativacao("Usuarios", $userId, $usuario['usu_login']);
             Response::json(true, "Usuário inativado com sucesso.");
         } catch (Exception $e) {
             Response::json(false, "Falha ao inativar usuário: " . $e->getMessage(), null, 500);
@@ -215,7 +245,10 @@ class UsuariosController {
      * POST /usuarios/{id}/redefinir-senha
      */
     public function redefinirSenha(string $id): void {
-        Auth::requireAuth(['ADMINISTRADOR']);
+        $currentUser = Auth::requireAuth();
+        if ($currentUser['usu_perfil'] !== 'ADMINISTRADOR') {
+            Response::json(false, "Acesso negado. Esta funcionalidade é exclusiva do Administrador do Sistema.", null, 403);
+        }
         
         $userId = (int)$id;
         $usuario = $this->usuarioModel->findById($userId);
@@ -239,10 +272,11 @@ class UsuariosController {
                 'usu_exige_troca_senha' => $exigirTroca ? 1 : 0
             ]);
 
-            // Reseta tentativas de login falhas
             $this->usuarioModel->resetFailAttempts($usuario['usu_login']);
 
-            Audit::log("Redefiniu a senha de um usuário", "Usuarios", $userId, "Senha redefinida temporariamente.");
+            $ocorrencia = "Senha do usuário redefinida.";
+            $detalhesJson = json_encode(['ocorrencia' => $ocorrencia], JSON_UNESCAPED_UNICODE);
+            \Core\Audit::log("REDEFINIÇÃO_DE_SENHA", "Usuarios", $userId, $detalhesJson);
 
             // Retorna dados atualizados sem o hash
             $atualizado = $this->usuarioModel->findById($userId);

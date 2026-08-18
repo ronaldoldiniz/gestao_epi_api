@@ -33,8 +33,8 @@ class AssinaturasController {
         $funId = (int)$input['fun_id'];
         $pin = trim((string)$input['pin']);
 
-        if (strlen($pin) < 4) {
-            Response::json(false, "O PIN de segurança deve possuir pelo menos 4 dígitos.", null, 422);
+        if (strlen($pin) < 4 || strlen($pin) > 10) {
+            Response::json(false, "O PIN de segurança deve possuir entre 4 e 10 caracteres.", null, 422);
         }
 
         // Valida existência do funcionário
@@ -50,23 +50,20 @@ class AssinaturasController {
 
             $existingAssinatura = $this->assinaturaModel->findByFuncionarioId($funId);
             if ($existingAssinatura) {
-                // Se já existir, atualiza o PIN e reativa
                 $assId = (int)$existingAssinatura['ass_id'];
                 $this->assinaturaModel->updatePin($assId, $pin);
-                $acaoLog = "Redefiniu PIN de assinatura";
-                $detalhesLog = "PIN atualizado e assinatura confirmada como ativa";
+                $acaoLog = "REDEFINIÇÃO_DE_SENHA";
+                $detalhesLog = json_encode(['ocorrencia' => 'PIN de assinatura eletrônica redefinido.'], JSON_UNESCAPED_UNICODE);
             } else {
-                // Cria nova assinatura eletrônica
                 $assId = $this->assinaturaModel->create([
                     'fun_id' => $funId,
                     'usu_id' => (int)$currentUser['usu_id'],
                     'pin' => $pin
                 ]);
-                $acaoLog = "Criou assinatura eletrônica";
-                $detalhesLog = "Assinatura vinculada ao funcionário: " . $funcionario['fun_nome'];
+                $acaoLog = "CADASTRO";
+                $detalhesLog = json_encode(['ocorrencia' => 'PIN de assinatura eletrônica cadastrado para o funcionário: ' . $funcionario['fun_nome']], JSON_UNESCAPED_UNICODE);
             }
 
-            // Sincroniza o status do funcionário para ATIVO
             $this->funcionarioModel->markAsActiveAfterSignature($funId);
 
             Audit::log($acaoLog, "Assinatura_Eletronica", $assId, $detalhesLog, null, $funId, null, null, null, $assId);
@@ -99,8 +96,8 @@ class AssinaturasController {
         }
 
         $newPin = trim((string)$input['pin']);
-        if (strlen($newPin) < 4) {
-            Response::json(false, "O PIN deve possuir pelo menos 4 caracteres.", null, 422);
+        if (strlen($newPin) < 4 || strlen($newPin) > 10) {
+            Response::json(false, "O PIN deve possuir entre 4 e 10 caracteres.", null, 422);
         }
 
         $db = \Config\Database::getConnection();
@@ -109,10 +106,10 @@ class AssinaturasController {
 
             $this->assinaturaModel->updatePin($assId, $newPin);
             
-            // Sincroniza o status do funcionário para ATIVO
             $this->funcionarioModel->markAsActiveAfterSignature((int)$assinatura['fun_id']);
 
-            Audit::log("Redefiniu PIN de assinatura", "Assinatura_Eletronica", $assId, "PIN atualizado pelo administrador", null, (int)$assinatura['fun_id'], null, null, null, $assId);
+            $detalhesLog = json_encode(['ocorrencia' => 'PIN de assinatura eletrônica redefinido.'], JSON_UNESCAPED_UNICODE);
+            Audit::log("REDEFINIÇÃO_DE_SENHA", "Assinatura_Eletronica", $assId, $detalhesLog, null, (int)$assinatura['fun_id'], null, null, null, $assId);
             
             $db->commit();
             Response::json(true, "PIN de assinatura eletrônica atualizado com sucesso.");
@@ -144,7 +141,8 @@ class AssinaturasController {
         }
 
         if ($assinatura['ass_status'] === 'BLOQUEADO') {
-            Audit::log("Tentativa de uso de assinatura bloqueada", "Assinatura_Eletronica", (int)$assinatura['ass_id'], "PIN inválido ou assinatura bloqueada", null, $funId, null, null, null, (int)$assinatura['ass_id']);
+            $detalhesLog = json_encode(['ocorrencia' => 'Tentativa de uso de assinatura eletrônica bloqueada.'], JSON_UNESCAPED_UNICODE);
+            Audit::log("VALIDAÇÃO", "Assinatura_Eletronica", (int)$assinatura['ass_id'], $detalhesLog, null, $funId, null, null, null, (int)$assinatura['ass_id']);
             Response::json(false, "A assinatura eletrônica deste funcionário está BLOQUEADA por excesso de erros. Solicite o desbloqueio ao RH.", null, 403);
         }
 
@@ -152,7 +150,6 @@ class AssinaturasController {
             Response::json(false, "A assinatura eletrônica do funcionário não está ativa no momento.", null, 403);
         }
 
-        // Carrega limites do config
         $configFile = dirname(__DIR__) . '/config/config.php';
         if (!file_exists($configFile)) {
             $configFile = dirname(__DIR__) . '/config/config.example.php';
@@ -160,21 +157,20 @@ class AssinaturasController {
         $config = require $configFile;
         $maxPinAttempts = $config['security']['max_pin_attempts'] ?? 3;
 
-        // Valida hash do PIN
-        if (password_verify($pin, $assinatura['ass_senha_hash'])) {
-            // Sucesso
+        if (\Security\PasswordService::verify($pin, $assinatura['ass_salt'] ?? '', $assinatura['ass_senha_hash'])) {
             $this->assinaturaModel->registerUse((int)$assinatura['ass_id']);
-            Audit::log("Validação de PIN bem-sucedida", "Assinatura_Eletronica", (int)$assinatura['ass_id'], "Funcionário validou assinatura com sucesso", null, $funId, null, null, null, (int)$assinatura['ass_id']);
+            $detalhesLog = json_encode(['ocorrencia' => 'Validação de PIN bem-sucedida.'], JSON_UNESCAPED_UNICODE);
+            Audit::log("VALIDAÇÃO", "Assinatura_Eletronica", (int)$assinatura['ass_id'], $detalhesLog, null, $funId, null, null, null, (int)$assinatura['ass_id']);
             
             Response::json(true, "PIN validado com sucesso.", [
                 'ass_id' => (int)$assinatura['ass_id'],
                 'fun_id' => $funId
             ]);
         } else {
-            // Falha
             $attempts = $this->assinaturaModel->incrementFailAttempts((int)$assinatura['ass_id'], $maxPinAttempts);
             
-            Audit::log("Falha na validação do PIN", "Assinatura_Eletronica", (int)$assinatura['ass_id'], "Erro de digitação do PIN. Tentativa {$attempts} de {$maxPinAttempts}", null, $funId, null, null, null, (int)$assinatura['ass_id']);
+            $detalhesLog = json_encode(['ocorrencia' => "Falha na validação do PIN. Tentativa {$attempts} de {$maxPinAttempts}."], JSON_UNESCAPED_UNICODE);
+            Audit::log("VALIDAÇÃO", "Assinatura_Eletronica", (int)$assinatura['ass_id'], $detalhesLog, null, $funId, null, null, null, (int)$assinatura['ass_id']);
 
             if ($attempts >= $maxPinAttempts) {
                 Response::json(false, "PIN incorreto. A assinatura eletrônica do funcionário foi BLOQUEADA por excesso de erros.", null, 401);
@@ -199,8 +195,8 @@ class AssinaturasController {
         $funId = (int)$input['fun_id'];
         $newPin = trim((string)$input['pin']);
 
-        if (strlen($newPin) < 4) {
-            Response::json(false, "O PIN deve possuir pelo menos 4 caracteres.", null, 422);
+        if (strlen($newPin) < 4 || strlen($newPin) > 10) {
+            Response::json(false, "O PIN deve possuir entre 4 e 10 caracteres.", null, 422);
         }
 
         $assinatura = $this->assinaturaModel->findByFuncionarioId($funId);
@@ -214,10 +210,10 @@ class AssinaturasController {
 
             $this->assinaturaModel->updatePin((int)$assinatura['ass_id'], $newPin);
             
-            // Sincroniza o status do funcionário para ATIVO
             $this->funcionarioModel->markAsActiveAfterSignature($funId);
 
-            Audit::log("Redefiniu PIN de assinatura", "Assinatura_Eletronica", (int)$assinatura['ass_id'], "PIN alterado", null, $funId, null, null, null, (int)$assinatura['ass_id']);
+            $detalhesLog = json_encode(['ocorrencia' => 'PIN de assinatura eletrônica redefinido.'], JSON_UNESCAPED_UNICODE);
+            Audit::log("REDEFINIÇÃO_DE_SENHA", "Assinatura_Eletronica", (int)$assinatura['ass_id'], $detalhesLog, null, $funId, null, null, null, (int)$assinatura['ass_id']);
             
             $db->commit();
             Response::json(true, "PIN de assinatura eletrônica do funcionário redefinido com sucesso.");
@@ -246,7 +242,8 @@ class AssinaturasController {
 
         try {
             $this->assinaturaModel->lockSignature($assId, $motivo);
-            Audit::log("Bloqueou assinatura eletrônica", "Assinatura_Eletronica", $assId, "Motivo: " . $motivo, null, (int)$assinatura['fun_id'], null, null, null, $assId);
+            $detalhesLog = json_encode(['ocorrencia' => "Assinatura eletrônica bloqueada. Motivo: " . $motivo], JSON_UNESCAPED_UNICODE);
+            Audit::log("BLOQUEIO", "Assinatura_Eletronica", $assId, $detalhesLog, null, (int)$assinatura['fun_id'], null, null, null, $assId);
             Response::json(true, "Assinatura eletrônica bloqueada com sucesso.");
         } catch (Exception $e) {
             Response::json(false, "Falha ao bloquear assinatura: " . $e->getMessage(), null, 500);
@@ -271,10 +268,10 @@ class AssinaturasController {
 
             $this->assinaturaModel->unlockSignature($assId);
             
-            // Sincroniza o status do funcionário para ATIVO ao desbloquear
             $this->funcionarioModel->markAsActiveAfterSignature((int)$assinatura['fun_id']);
 
-            Audit::log("Desbloqueou assinatura eletrônica", "Assinatura_Eletronica", $assId, "Desbloqueio efetuado pelo operador.", null, (int)$assinatura['fun_id'], null, null, null, $assId);
+            $detalhesLog = json_encode(['ocorrencia' => 'Assinatura eletrônica desbloqueada pelo operador.'], JSON_UNESCAPED_UNICODE);
+            Audit::log("DESBLOQUEIO", "Assinatura_Eletronica", $assId, $detalhesLog, null, (int)$assinatura['fun_id'], null, null, null, $assId);
             
             $db->commit();
             Response::json(true, "Assinatura eletrônica desbloqueada com sucesso.");

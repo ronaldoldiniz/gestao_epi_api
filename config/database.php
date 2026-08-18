@@ -28,7 +28,21 @@ class Database {
 
             $config = require $configFile;
 
+            // Sobrescreve config de app com variáveis de ambiente (Render/produção)
+            if (getenv('APP_ENV')) $config['app']['env'] = getenv('APP_ENV');
+            if (getenv('APP_DEBUG')) $config['app']['debug'] = filter_var(getenv('APP_DEBUG'), FILTER_VALIDATE_BOOLEAN);
+            if (getenv('APP_SECRET_KEY')) $config['app']['secret_key'] = getenv('APP_SECRET_KEY');
+            if (getenv('APP_TOKEN_TTL')) $config['app']['token_ttl'] = (int)getenv('APP_TOKEN_TTL');
+
             $dbConfig = $config['db'];
+
+            // Sobrescreve com variáveis de ambiente (útil para Render/produção)
+            $dbConfig['host'] = getenv('DB_HOST') ?: $dbConfig['host'];
+            $dbConfig['port'] = getenv('DB_PORT') ?: $dbConfig['port'];
+            $dbConfig['dbname'] = getenv('DB_NAME') ?: $dbConfig['dbname'];
+            $dbConfig['username'] = getenv('DB_USER') ?: $dbConfig['username'];
+            $dbConfig['password'] = getenv('DB_PASS') ?: $dbConfig['password'];
+            $dbConfig['charset'] = getenv('DB_CHARSET') ?: $dbConfig['charset'];
             $dsn = sprintf(
                 "mysql:host=%s;port=%s;dbname=%s;charset=%s",
                 $dbConfig['host'],

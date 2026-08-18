@@ -18,7 +18,7 @@ class Usuario {
      * Busca usuário pelo login
      */
     public function findByLogin(string $login): ?array {
-        $sql = "SELECT * FROM Usuarios WHERE usu_login = :login LIMIT 1";
+        $sql = "SELECT * FROM usuarios WHERE usu_login = :login LIMIT 1";
         $stmt = $this->db->prepare($sql);
         $stmt->execute([':login' => $login]);
         $user = $stmt->fetch();
@@ -31,7 +31,7 @@ class Usuario {
     public function findById(int $id): ?array {
         $sql = "SELECT usu_id, usu_login, usu_perfil, usu_status, usu_data_cadastro, 
                        usu_tentativas_falha, usu_data_bloqueio, usu_motivo_bloqueio, usu_exige_troca_senha 
-                FROM Usuarios WHERE usu_id = :id LIMIT 1";
+                FROM usuarios WHERE usu_id = :id LIMIT 1";
         $stmt = $this->db->prepare($sql);
         $stmt->execute([':id' => $id]);
         $user = $stmt->fetch();
@@ -44,7 +44,7 @@ class Usuario {
     public function findAll(): array {
         $sql = "SELECT usu_id, usu_login, usu_perfil, usu_status, usu_data_cadastro, 
                        usu_tentativas_falha, usu_data_bloqueio, usu_motivo_bloqueio, usu_exige_troca_senha 
-                FROM Usuarios ORDER BY usu_login ASC";
+                FROM usuarios ORDER BY usu_login ASC";
         $stmt = $this->db->query($sql);
         return $stmt->fetchAll();
     }
@@ -53,13 +53,17 @@ class Usuario {
      * Cadastra um novo usuário gerando o hash de senha
      */
     public function create(array $data): int {
-        $sql = "INSERT INTO Usuarios (usu_login, usu_senha_hash, usu_perfil, usu_status, usu_data_cadastro, usu_tentativas_falha, usu_exige_troca_senha)
-                VALUES (:login, :senha_hash, :perfil, :status, NOW(), 0, :exige_troca_senha)";
+        $salt = \Security\PasswordService::generateSalt();
+        $hash = \Security\PasswordService::hash($data['senha'], $salt);
+
+        $sql = "INSERT INTO usuarios (usu_login, usu_senha_hash, usu_senha_salt, usu_perfil, usu_status, usu_data_cadastro, usu_tentativas_falha, usu_exige_troca_senha)
+                VALUES (:login, :senha_hash, :senha_salt, :perfil, :status, NOW(), 0, :exige_troca_senha)";
         
         $stmt = $this->db->prepare($sql);
         $stmt->execute([
             ':login' => $data['usu_login'],
-            ':senha_hash' => password_hash($data['senha'], PASSWORD_DEFAULT),
+            ':senha_hash' => $hash,
+            ':senha_salt' => $salt,
             ':perfil' => $data['usu_perfil'],
             ':status' => $data['usu_status'] ?? 'ATIVO',
             ':exige_troca_senha' => isset($data['usu_exige_troca_senha']) ? ((int)$data['usu_exige_troca_senha']) : 0
@@ -80,8 +84,13 @@ class Usuario {
             $params[':login'] = $data['usu_login'];
         }
         if (isset($data['senha']) && $data['senha'] !== '') {
+            $salt = \Security\PasswordService::generateSalt();
+            $hash = \Security\PasswordService::hash($data['senha'], $salt);
+            
             $fields[] = "usu_senha_hash = :senha_hash";
-            $params[':senha_hash'] = password_hash($data['senha'], PASSWORD_DEFAULT);
+            $fields[] = "usu_senha_salt = :senha_salt";
+            $params[':senha_hash'] = $hash;
+            $params[':senha_salt'] = $salt;
         }
         if (isset($data['usu_perfil'])) {
             $fields[] = "usu_perfil = :perfil";
@@ -100,7 +109,7 @@ class Usuario {
             return false;
         }
 
-        $sql = "UPDATE Usuarios SET " . implode(", ", $fields) . " WHERE usu_id = :id";
+        $sql = "UPDATE usuarios SET " . implode(", ", $fields) . " WHERE usu_id = :id";
         $stmt = $this->db->prepare($sql);
         return $stmt->execute($params);
     }
@@ -109,7 +118,7 @@ class Usuario {
      * Efetua exclusão lógica inativando o usuário
      */
     public function delete(int $id): bool {
-        $sql = "UPDATE Usuarios SET usu_status = 'INATIVO' WHERE usu_id = :id";
+        $sql = "UPDATE usuarios SET usu_status = 'INATIVO' WHERE usu_id = :id";
         $stmt = $this->db->prepare($sql);
         return $stmt->execute([':id' => $id]);
     }
@@ -119,7 +128,7 @@ class Usuario {
      */
     public function incrementFailAttempts(string $login, int $maxAttempts): int {
         // Incrementa tentativa
-        $sql = "UPDATE Usuarios SET usu_tentativas_falha = usu_tentativas_falha + 1 WHERE usu_login = :login";
+        $sql = "UPDATE usuarios SET usu_tentativas_falha = usu_tentativas_falha + 1 WHERE usu_login = :login";
         $stmt = $this->db->prepare($sql);
         $stmt->execute([':login' => $login]);
 
@@ -136,7 +145,7 @@ class Usuario {
      * Zera tentativas falhas e remove bloqueio
      */
     public function resetFailAttempts(string $login): bool {
-        $sql = "UPDATE Usuarios 
+        $sql = "UPDATE usuarios 
                 SET usu_tentativas_falha = 0, 
                     usu_data_bloqueio = NULL, 
                     usu_motivo_bloqueio = NULL 
@@ -149,7 +158,7 @@ class Usuario {
      * Bloqueia temporariamente a conta do usuário
      */
     private function lockAccount(string $login, string $motivo): bool {
-        $sql = "UPDATE Usuarios 
+        $sql = "UPDATE usuarios 
                 SET usu_data_bloqueio = NOW(), 
                     usu_motivo_bloqueio = :motivo 
                 WHERE usu_login = :login";

@@ -18,7 +18,7 @@ class AssinaturaEletronica {
      * Busca a assinatura eletrônica pelo ID do Funcionário
      */
     public function findByFuncionarioId(int $funId): ?array {
-        $sql = "SELECT * FROM Assinatura_Eletronica WHERE fun_id = :fun_id LIMIT 1";
+        $sql = "SELECT * FROM assinatura_eletronica WHERE fun_id = :fun_id LIMIT 1";
         $stmt = $this->db->prepare($sql);
         $stmt->execute([':fun_id' => $funId]);
         $assinatura = $stmt->fetch();
@@ -29,7 +29,7 @@ class AssinaturaEletronica {
      * Busca a assinatura eletrônica pelo ID próprio
      */
     public function findById(int $id): ?array {
-        $sql = "SELECT * FROM Assinatura_Eletronica WHERE ass_id = :id LIMIT 1";
+        $sql = "SELECT * FROM assinatura_eletronica WHERE ass_id = :id LIMIT 1";
         $stmt = $this->db->prepare($sql);
         $stmt->execute([':id' => $id]);
         $assinatura = $stmt->fetch();
@@ -37,15 +37,13 @@ class AssinaturaEletronica {
     }
 
     /**
-     * Cria uma nova assinatura eletrônica com PIN criptografado
+     * Cria uma nova assinatura eletrônica com PIN criptografado usando SHA-256 + Salt
      */
     public function create(array $data): int {
-        // Gera um salt aleatório para manter compatibilidade com o campo do banco,
-        // embora o password_hash() já gerencie seu próprio salt interno de forma segura.
-        $salt = bin2hex(random_bytes(16));
-        $hash = password_hash($data['pin'], PASSWORD_DEFAULT);
+        $salt = \Security\PasswordService::generateSalt();
+        $hash = \Security\PasswordService::hash($data['pin'], $salt);
 
-        $sql = "INSERT INTO Assinatura_Eletronica (
+        $sql = "INSERT INTO assinatura_eletronica (
                     fun_id, usu_id, ass_senha_hash, ass_salt, ass_status, 
                     ass_data_cadastro, ass_tentativas_falha
                 ) VALUES (
@@ -68,9 +66,11 @@ class AssinaturaEletronica {
      * Atualiza o PIN da assinatura eletrônica
      */
     public function updatePin(int $id, string $newPin): bool {
-        $hash = password_hash($newPin, PASSWORD_DEFAULT);
-        $sql = "UPDATE Assinatura_Eletronica 
+        $salt = \Security\PasswordService::generateSalt();
+        $hash = \Security\PasswordService::hash($newPin, $salt);
+        $sql = "UPDATE assinatura_eletronica 
                 SET ass_senha_hash = :senha_hash, 
+                    ass_salt = :salt,
                     ass_status = 'ATIVO', 
                     ass_tentativas_falha = 0, 
                     ass_data_bloqueio = NULL, 
@@ -80,7 +80,8 @@ class AssinaturaEletronica {
         $stmt = $this->db->prepare($sql);
         return $stmt->execute([
             ':id' => $id,
-            ':senha_hash' => $hash
+            ':senha_hash' => $hash,
+            ':salt' => $salt
         ]);
     }
 
@@ -88,7 +89,7 @@ class AssinaturaEletronica {
      * Registra uso bem-sucedido atualizando o timestamp
      */
     public function registerUse(int $id): bool {
-        $sql = "UPDATE Assinatura_Eletronica SET ass_ultimo_uso = NOW(), ass_tentativas_falha = 0 WHERE ass_id = :id";
+        $sql = "UPDATE assinatura_eletronica SET ass_ultimo_uso = NOW(), ass_tentativas_falha = 0 WHERE ass_id = :id";
         $stmt = $this->db->prepare($sql);
         return $stmt->execute([':id' => $id]);
     }
@@ -97,7 +98,7 @@ class AssinaturaEletronica {
      * Incrementa tentativas de falha e bloqueia se necessário
      */
     public function incrementFailAttempts(int $id, int $maxAttempts): int {
-        $sql = "UPDATE Assinatura_Eletronica SET ass_tentativas_falha = ass_tentativas_falha + 1 WHERE ass_id = :id";
+        $sql = "UPDATE assinatura_eletronica SET ass_tentativas_falha = ass_tentativas_falha + 1 WHERE ass_id = :id";
         $stmt = $this->db->prepare($sql);
         $stmt->execute([':id' => $id]);
 
@@ -113,7 +114,7 @@ class AssinaturaEletronica {
      * Bloqueia a assinatura eletrônica
      */
     public function lockSignature(int $id, string $motivo): bool {
-        $sql = "UPDATE Assinatura_Eletronica 
+        $sql = "UPDATE assinatura_eletronica 
                 SET ass_status = 'BLOQUEADO', 
                     ass_data_bloqueio = NOW(), 
                     ass_motivo_bloqueio = :motivo 
@@ -129,7 +130,7 @@ class AssinaturaEletronica {
      * Desbloqueia a assinatura eletrônica resetando as falhas
      */
     public function unlockSignature(int $id): bool {
-        $sql = "UPDATE Assinatura_Eletronica 
+        $sql = "UPDATE assinatura_eletronica 
                 SET ass_status = 'ATIVO', 
                     ass_tentativas_falha = 0, 
                     ass_data_bloqueio = NULL, 

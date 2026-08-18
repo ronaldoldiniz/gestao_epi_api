@@ -28,6 +28,15 @@ class Response {
             'data' => $data
         ];
 
+        if (is_array($data) && isset($data['_is_custom_payload']) && $data['_is_custom_payload']) {
+            unset($data['_is_custom_payload']);
+            $payload = array_merge($payload, $data);
+            // If only _is_custom_payload was present, set data to null
+            if (!array_key_exists('data', $data)) {
+                $payload['data'] = null;
+            }
+        }
+
         echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         exit;
     }
