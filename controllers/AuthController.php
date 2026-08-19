@@ -83,7 +83,9 @@ class AuthController {
                     'usu_id' => (int)$user['usu_id'],
                     'usu_login' => $user['usu_login'],
                     'usu_perfil' => $user['usu_perfil'],
-                    'usu_status' => $user['usu_status']
+                    'usu_status' => $user['usu_status'],
+                    'usu_aceite_termos' => (int)($user['usu_aceite_termos'] ?? 0) === 1,
+                    'usu_data_aceite_termos' => isset($user['usu_data_aceite_termos']) ? (int)$user['usu_data_aceite_termos'] : null
                 ]
             ]);
         } else {
@@ -118,11 +120,18 @@ class AuthController {
      */
     public function me(): void {
         $currentUser = Auth::requireAuth();
+
+        $user = $this->getUsuarioModel()->findById((int)$currentUser['usu_id']);
+        $aceiteTermos = $user ? (int)($user['usu_aceite_termos'] ?? 0) === 1 : false;
+        $dataAceiteTermos = $user && isset($user['usu_data_aceite_termos']) ? (int)$user['usu_data_aceite_termos'] : null;
+
         Response::json(true, "Informações do usuário autenticado.", [
             'usuario' => [
                 'usu_id' => (int)$currentUser['usu_id'],
                 'usu_login' => $currentUser['usu_login'],
-                'usu_perfil' => $currentUser['usu_perfil']
+                'usu_perfil' => $currentUser['usu_perfil'],
+                'usu_aceite_termos' => $aceiteTermos,
+                'usu_data_aceite_termos' => $dataAceiteTermos
             ]
         ]);
     }

@@ -27,6 +27,7 @@ $router->add('GET', '/usuarios/{id}', 'UsuariosController@show', ['ADMINISTRADOR
 $router->add('POST', '/usuarios', 'UsuariosController@store', ['ADMINISTRADOR']);
 $router->add('PUT', '/usuarios/{id}', 'UsuariosController@update', ['ADMINISTRADOR']);
 $router->add('POST', '/usuarios/{id}/redefinir-senha', 'UsuariosController@redefinirSenha', ['ADMINISTRADOR']);
+$router->add('POST', '/usuarios/{id}/aceitar-termos', 'UsuariosController@aceitarTermos', ['ADMINISTRADOR', 'RH_ADMINISTRATIVO', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR', 'GESTOR']);
 $router->add('DELETE', '/usuarios/{id}', 'UsuariosController@destroy', ['ADMINISTRADOR']);
 $router->add('GET', '/logs', 'LogsController@index', ['ADMINISTRADOR']);
 $router->add('GET', '/logs/{id}', 'LogsController@show', ['ADMINISTRADOR']);

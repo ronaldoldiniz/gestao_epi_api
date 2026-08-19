@@ -26,11 +26,24 @@ class Usuario {
     }
 
     /**
+     * Registra o aceite dos Termos de Uso
+     */
+    public function aceitarTermos(int $id): bool {
+        $sql = "UPDATE usuarios SET usu_aceite_termos = 1, usu_data_aceite_termos = :data_aceite WHERE usu_id = :id";
+        $stmt = $this->db->prepare($sql);
+        return $stmt->execute([
+            ':id' => $id,
+            ':data_aceite' => round(microtime(true) * 1000)
+        ]);
+    }
+
+    /**
      * Busca usuário pelo ID
      */
     public function findById(int $id): ?array {
         $sql = "SELECT u.usu_id, u.usu_login, u.usu_perfil, u.usu_status, u.usu_data_cadastro, 
                        u.usu_tentativas_falha, u.usu_data_bloqueio, u.usu_motivo_bloqueio, u.usu_exige_troca_senha,
+                       u.usu_aceite_termos, u.usu_data_aceite_termos,
                        (SELECT MAX(log_datahora) FROM log_auditoria WHERE usu_id = u.usu_id AND log_acao = 'LOGIN') as usu_ultimo_login
                 FROM usuarios u WHERE u.usu_id = :id LIMIT 1";
         $stmt = $this->db->prepare($sql);
@@ -45,6 +58,7 @@ class Usuario {
     public function findAll(): array {
         $sql = "SELECT u.usu_id, u.usu_login, u.usu_perfil, u.usu_status, u.usu_data_cadastro, 
                        u.usu_tentativas_falha, u.usu_data_bloqueio, u.usu_motivo_bloqueio, u.usu_exige_troca_senha,
+                       u.usu_aceite_termos, u.usu_data_aceite_termos,
                        (SELECT MAX(log_datahora) FROM log_auditoria WHERE usu_id = u.usu_id AND log_acao = 'LOGIN') as usu_ultimo_login
                 FROM usuarios u ORDER BY u.usu_login ASC";
         $stmt = $this->db->query($sql);

@@ -34,7 +34,9 @@ class UsuariosController {
                 'usu_status' => $user['usu_status'],
                 'usu_data_cadastro' => $user['usu_data_cadastro'],
                 'usu_exige_troca_senha' => (int)($user['usu_exige_troca_senha'] ?? 0) === 1,
-                'usu_ultimo_login' => $user['usu_ultimo_login'] ?? null
+                'usu_ultimo_login' => $user['usu_ultimo_login'] ?? null,
+                'usu_aceite_termos' => (int)($user['usu_aceite_termos'] ?? 0) === 1,
+                'usu_data_aceite_termos' => isset($user['usu_data_aceite_termos']) ? (int)$user['usu_data_aceite_termos'] : null
             ];
         }, $usuarios);
 
@@ -62,10 +64,40 @@ class UsuariosController {
             'usu_status' => $usuario['usu_status'],
             'usu_data_cadastro' => $usuario['usu_data_cadastro'],
             'usu_exige_troca_senha' => (int)($usuario['usu_exige_troca_senha'] ?? 0) === 1,
-            'usu_ultimo_login' => $usuario['usu_ultimo_login'] ?? null
+            'usu_ultimo_login' => $usuario['usu_ultimo_login'] ?? null,
+            'usu_aceite_termos' => (int)($usuario['usu_aceite_termos'] ?? 0) === 1,
+            'usu_data_aceite_termos' => isset($usuario['usu_data_aceite_termos']) ? (int)$usuario['usu_data_aceite_termos'] : null
         ];
 
         Response::json(true, "Usuário localizado com sucesso.", $resultado);
+    }
+
+    /**
+     * POST /usuarios/{id}/aceitar-termos
+     */
+    public function aceitarTermos(string $id): void {
+        $currentUser = Auth::requireAuth();
+
+        $userId = (int)$id;
+        if ((int)$currentUser['usu_id'] !== $userId && $currentUser['usu_perfil'] !== 'ADMINISTRADOR') {
+            Response::json(false, "Acesso negado.", null, 403);
+        }
+
+        $usuario = $this->usuarioModel->findById($userId);
+        if (!$usuario) {
+            Response::json(false, "Usuário não encontrado.", null, 404);
+        }
+
+        try {
+            $this->usuarioModel->aceitarTermos($userId);
+
+            $detalhesLog = json_encode(['ocorrencia' => "Aceite dos Termos de Uso registrado."], JSON_UNESCAPED_UNICODE);
+            \Core\Audit::log("ACEITE_TERMOS", "Usuarios", $userId, $detalhesLog, $userId);
+
+            Response::json(true, "Termos de Uso aceitos com sucesso.");
+        } catch (Exception $e) {
+            Response::json(false, "Falha ao registrar aceite: " . $e->getMessage(), null, 500);
+        }
     }
 
     /**
@@ -123,7 +155,9 @@ class UsuariosController {
                 'usu_perfil' => $novoUsuario['usu_perfil'],
                 'usu_status' => $novoUsuario['usu_status'],
                 'usu_data_cadastro' => $novoUsuario['usu_data_cadastro'],
-                'usu_exige_troca_senha' => (int)($novoUsuario['usu_exige_troca_senha'] ?? 0) === 1
+                'usu_exige_troca_senha' => (int)($novoUsuario['usu_exige_troca_senha'] ?? 0) === 1,
+                'usu_aceite_termos' => (int)($novoUsuario['usu_aceite_termos'] ?? 0) === 1,
+                'usu_data_aceite_termos' => isset($novoUsuario['usu_data_aceite_termos']) ? (int)$novoUsuario['usu_data_aceite_termos'] : null
             ];
             Response::json(true, "Usuário cadastrado com sucesso.", $resultado, 201);
         } catch (Exception $e) {
@@ -207,7 +241,9 @@ class UsuariosController {
                 'usu_perfil' => $atualizado['usu_perfil'],
                 'usu_status' => $atualizado['usu_status'],
                 'usu_data_cadastro' => $atualizado['usu_data_cadastro'],
-                'usu_exige_troca_senha' => (int)($atualizado['usu_exige_troca_senha'] ?? 0) === 1
+                'usu_exige_troca_senha' => (int)($atualizado['usu_exige_troca_senha'] ?? 0) === 1,
+                'usu_aceite_termos' => (int)($atualizado['usu_aceite_termos'] ?? 0) === 1,
+                'usu_data_aceite_termos' => isset($atualizado['usu_data_aceite_termos']) ? (int)$atualizado['usu_data_aceite_termos'] : null
             ];
             Response::json(true, "Usuário atualizado com sucesso.", $resultado);
         } catch (Exception $e) {
@@ -288,7 +324,9 @@ class UsuariosController {
                 'usu_perfil' => $atualizado['usu_perfil'],
                 'usu_status' => $atualizado['usu_status'],
                 'usu_data_cadastro' => $atualizado['usu_data_cadastro'],
-                'usu_exige_troca_senha' => (int)($atualizado['usu_exige_troca_senha'] ?? 0) === 1
+                'usu_exige_troca_senha' => (int)($atualizado['usu_exige_troca_senha'] ?? 0) === 1,
+                'usu_aceite_termos' => (int)($atualizado['usu_aceite_termos'] ?? 0) === 1,
+                'usu_data_aceite_termos' => isset($atualizado['usu_data_aceite_termos']) ? (int)$atualizado['usu_data_aceite_termos'] : null
             ];
 
             Response::json(true, "Senha redefinida com sucesso.", $resultado);

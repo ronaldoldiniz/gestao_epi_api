@@ -40,6 +40,8 @@ class Audit {
         'usu_login' => 'Login',
         'usu_perfil' => 'Perfil',
         'usu_status' => 'Status',
+        'usu_aceite_termos' => 'Aceite dos Termos de Uso',
+        'usu_data_aceite_termos' => 'Data do Aceite dos Termos',
         'ass_status' => 'Status da Assinatura',
         'entr_status' => 'Status da Entrega',
         'entr_motivo' => 'Motivo do Status',
