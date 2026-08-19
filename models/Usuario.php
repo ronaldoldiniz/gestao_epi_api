@@ -28,12 +28,13 @@ class Usuario {
     /**
      * Registra o aceite dos Termos de Uso
      */
-    public function aceitarTermos(int $id): bool {
+    public function aceitarTermos(int $id, ?int $dataAceite = null): bool {
+        $timestamp = $dataAceite ?? round(microtime(true) * 1000);
         $sql = "UPDATE usuarios SET usu_aceite_termos = 1, usu_data_aceite_termos = :data_aceite WHERE usu_id = :id";
         $stmt = $this->db->prepare($sql);
         return $stmt->execute([
             ':id' => $id,
-            ':data_aceite' => round(microtime(true) * 1000)
+            ':data_aceite' => $timestamp
         ]);
     }
 

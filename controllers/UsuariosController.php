@@ -89,7 +89,9 @@ class UsuariosController {
         }
 
         try {
-            $this->usuarioModel->aceitarTermos($userId);
+            $input = json_decode(file_get_contents('php://input'), true) ?? [];
+            $dataAceite = isset($input['data_aceite']) ? (int)$input['data_aceite'] : null;
+            $this->usuarioModel->aceitarTermos($userId, $dataAceite);
 
             $detalhesLog = json_encode(['ocorrencia' => "Aceite dos Termos de Uso registrado."], JSON_UNESCAPED_UNICODE);
             \Core\Audit::log("ACEITE_TERMOS", "Usuarios", $userId, $detalhesLog, $userId);
