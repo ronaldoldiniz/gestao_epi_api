@@ -112,11 +112,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 // ==========================================
 // INICIALIZA AUTENTICAÇÃO E ROTEAMENTO
 // ==========================================
-if (strpos($_SERVER['REQUEST_URI'], '/test_env.php') !== false) {
-    require_once __DIR__ . '/test_env.php';
-    exit;
-}
-
 Auth::init();
 
 $router = require_once __DIR__ . '/routes/api.php';
