@@ -126,13 +126,11 @@ class AuthController {
         $dataAceiteTermos = $user && isset($user['usu_data_aceite_termos']) ? (int)$user['usu_data_aceite_termos'] : null;
 
         Response::json(true, "Informações do usuário autenticado.", [
-            'usuario' => [
-                'usu_id' => (int)$currentUser['usu_id'],
-                'usu_login' => $currentUser['usu_login'],
-                'usu_perfil' => $currentUser['usu_perfil'],
-                'usu_aceite_termos' => $aceiteTermos,
-                'usu_data_aceite_termos' => $dataAceiteTermos
-            ]
+            'usu_id' => (int)$currentUser['usu_id'],
+            'usu_login' => $currentUser['usu_login'],
+            'usu_perfil' => $currentUser['usu_perfil'],
+            'usu_aceite_termos' => $aceiteTermos,
+            'usu_data_aceite_termos' => $dataAceiteTermos
         ]);
     }
 
