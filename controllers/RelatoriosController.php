@@ -32,7 +32,7 @@ class RelatoriosController {
      * Relatório geral consolidado de entregas
      */
     public function entregasGerais(): void {
-        Auth::requireAuth(['ADMINISTRADOR', 'TECNICO_SST', 'GESTOR']);
+        Auth::requireAuth(['ADMINISTRADOR', 'TECNICO_SST', 'GESTOR', 'RH_ADMINISTRATIVO']);
         
         $sql = "SELECT e.entr_id, f.fun_nome, u.usu_login, e.entr_data_entrega, e.entr_status, e.entr_motivo,
                        (SELECT COUNT(*) FROM itens_entrega i WHERE i.entr_id = e.entr_id) as total_itens
@@ -51,7 +51,7 @@ class RelatoriosController {
      * GET /relatorios/entregas/funcionario/{fun_id}
      */
     public function entregasPorFuncionario(string $funId): void {
-        Auth::requireAuth(['ADMINISTRADOR', 'TECNICO_SST', 'GESTOR']);
+        Auth::requireAuth(['ADMINISTRADOR', 'TECNICO_SST', 'GESTOR', 'RH_ADMINISTRATIVO']);
         $fId = (int)$funId;
 
         $funcModel = new Funcionario();
@@ -76,7 +76,7 @@ class RelatoriosController {
      * Relatório de EPIs que estão com status VENCIDO ou cuja validade expirou (baseada no C.A.)
      */
     public function episVencidos(): void {
-        Auth::requireAuth(['ADMINISTRADOR', 'TECNICO_SST', 'GESTOR']);
+        Auth::requireAuth(['ADMINISTRADOR', 'TECNICO_SST', 'GESTOR', 'RH_ADMINISTRATIVO']);
         
         $sql = "SELECT * FROM epis WHERE epi_vencimento_ca < CURDATE() OR epi_status = 'VENCIDO'";
         $stmt = $this->db->query($sql);
@@ -90,7 +90,7 @@ class RelatoriosController {
      * Relatório focado estritamente no vencimento do C.A. da tabela de EPIs
      */
     public function caVencidos(): void {
-        Auth::requireAuth(['ADMINISTRADOR', 'TECNICO_SST', 'GESTOR']);
+        Auth::requireAuth(['ADMINISTRADOR', 'TECNICO_SST', 'GESTOR', 'RH_ADMINISTRATIVO']);
         
         $sql = "SELECT epi_id, epi_nome, epi_ca, epi_vencimento_ca, epi_fabricante, epi_status 
                 FROM epis 
@@ -132,7 +132,7 @@ class RelatoriosController {
      * Relatório geral consolidado de fornecimento de EPIs
      */
     public function relatorioGeralEpis(): void {
-        $currentUser = Auth::requireAuth(['ADMINISTRADOR', 'TECNICO_SST', 'GESTOR']);
+        $currentUser = Auth::requireAuth(['ADMINISTRADOR', 'TECNICO_SST', 'GESTOR', 'RH_ADMINISTRATIVO']);
         $userProfile = $currentUser['usu_perfil'] ?? '';
         $canViewCosts = in_array($userProfile, ['ADMINISTRADOR', 'GESTOR'], true);
 

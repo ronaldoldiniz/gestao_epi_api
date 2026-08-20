@@ -20,7 +20,7 @@ class EpisController {
      * GET /epis
      */
     public function index(): void {
-        Auth::requireAuth(['ADMINISTRADOR', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR', 'GESTOR']);
+        Auth::requireAuth(['ADMINISTRADOR', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR', 'GESTOR', 'RH_ADMINISTRATIVO']);
         
         $epis = $this->epiModel->findAll();
         Response::json(true, "EPIs listados com sucesso.", $epis);
@@ -30,7 +30,7 @@ class EpisController {
      * GET /epis/{id}
      */
     public function show(string $id): void {
-        Auth::requireAuth(['ADMINISTRADOR', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR', 'GESTOR']);
+        Auth::requireAuth(['ADMINISTRADOR', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR', 'GESTOR', 'RH_ADMINISTRATIVO']);
         
         $epi = $this->epiModel->findById((int)$id);
         if (!$epi) {
@@ -190,7 +190,7 @@ class EpisController {
      * GET /epis/vencidos
      */
     public function showExpired(): void {
-        Auth::requireAuth(['ADMINISTRADOR', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR', 'GESTOR']);
+        Auth::requireAuth(['ADMINISTRADOR', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR', 'GESTOR', 'RH_ADMINISTRATIVO']);
         
         $vencidos = $this->epiModel->findExpiredCa();
         Response::json(true, "EPIs com C.A. vencido listados com sucesso.", $vencidos);
@@ -200,7 +200,7 @@ class EpisController {
      * GET /epis/proximos-vencimento
      */
     public function showNextExpiration(): void {
-        Auth::requireAuth(['ADMINISTRADOR', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR', 'GESTOR']);
+        Auth::requireAuth(['ADMINISTRADOR', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR', 'GESTOR', 'RH_ADMINISTRATIVO']);
         
         // Permite filtrar por dias na query string (default 30)
         $dias = isset($_GET['dias']) ? (int)$_GET['dias'] : 30;
