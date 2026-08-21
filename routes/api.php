@@ -46,8 +46,8 @@ $router->add('DELETE', '/funcionarios/{id}', 'FuncionariosController@destroy', [
 // ==========================================
 // ROTAS DE EPIS
 // ==========================================
-$router->add('GET', '/epis', 'EpisController@index', ['ADMINISTRADOR', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR', 'GESTOR']);
-$router->add('GET', '/epis/{id}', 'EpisController@show', ['ADMINISTRADOR', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR', 'GESTOR']);
+$router->add('GET', '/epis', 'EpisController@index', ['ADMINISTRADOR', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR', 'GESTOR', 'RH_ADMINISTRATIVO']);
+$router->add('GET', '/epis/{id}', 'EpisController@show', ['ADMINISTRADOR', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR', 'GESTOR', 'RH_ADMINISTRATIVO']);
 $router->add('GET', '/epis/vencidos', 'EpisController@showExpired', ['ADMINISTRADOR', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR', 'GESTOR']);
 $router->add('GET', '/epis/proximos-vencimento', 'EpisController@showNextExpiration', ['ADMINISTRADOR', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR', 'GESTOR']);
 $router->add('POST', '/epis', 'EpisController@store', ['ADMINISTRADOR', 'TECNICO_SST']);
@@ -70,7 +70,7 @@ $router->add('POST', '/assinaturas/desbloquear/{id}', 'AssinaturasController@des
 // ==========================================
 $router->add('GET', '/entregas', 'EntregasController@index', ['ADMINISTRADOR', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR', 'GESTOR']);
 $router->add('GET', '/entregas/{id}', 'EntregasController@show', ['ADMINISTRADOR', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR', 'GESTOR']);
-$router->add('GET', '/entregas/funcionario/{fun_id}', 'EntregasController@showByFuncionario', ['ADMINISTRADOR', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR', 'GESTOR']);
+$router->add('GET', '/entregas/funcionario/{fun_id}', 'EntregasController@showByFuncionario', ['ADMINISTRADOR', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR', 'GESTOR', 'RH_ADMINISTRATIVO']);
 $router->add('POST', '/entregas', 'EntregasController@store', ['ADMINISTRADOR', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR']);
 $router->add('POST', '/entregas/{id}/cancelar', 'EntregasController@cancelar', ['ADMINISTRADOR', 'TECNICO_SST']);
 $router->add('POST', '/entregas/item/{id}/corrigir', 'EntregasController@corrigirItem', ['ADMINISTRADOR']);
@@ -87,11 +87,12 @@ $router->add('GET', '/devolucoes/funcionario/{fun_id}', 'DevolucoesController@sh
 // ROTAS DE RELATÓRIOS
 // ==========================================
 $router->add('GET', '/relatorios/entregas', 'RelatoriosController@entregasGerais', ['ADMINISTRADOR', 'TECNICO_SST', 'GESTOR']);
-$router->add('GET', '/relatorios/entregas/funcionario/{fun_id}', 'RelatoriosController@entregasPorFuncionario', ['ADMINISTRADOR', 'TECNICO_SST', 'GESTOR']);
+$router->add('GET', '/relatorios/entregas/funcionario/{fun_id}', 'RelatoriosController@entregasPorFuncionario', ['ADMINISTRADOR', 'TECNICO_SST', 'GESTOR', 'RH_ADMINISTRATIVO']);
 $router->add('GET', '/relatorios/epis-vencidos', 'RelatoriosController@episVencidos', ['ADMINISTRADOR', 'TECNICO_SST', 'GESTOR']);
 $router->add('GET', '/relatorios/ca-vencidos', 'RelatoriosController@caVencidos', ['ADMINISTRADOR', 'TECNICO_SST', 'GESTOR']);
 $router->add('GET', '/relatorios/custo-mensal', 'RelatoriosController@custoMensal', ['ADMINISTRADOR', 'GESTOR']);
 $router->add('GET', '/relatorios/epis/consumo', 'RelatoriosController@relatorioConsumoEpis', ['ADMINISTRADOR', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR', 'GESTOR']);
+$router->add('GET', '/relatorios/epis/geral', 'RelatoriosController@relatorioGeralEpis', ['ADMINISTRADOR', 'TECNICO_SST', 'GESTOR', 'RH_ADMINISTRATIVO']);
 
 // ==========================================
 // ROTAS DE DASHBOARD

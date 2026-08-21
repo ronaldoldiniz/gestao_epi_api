@@ -15,7 +15,7 @@ return [
     ],
     'app' => [
         'env' => 'production',
-        'debug' => false,
+        'debug' => true,
         'secret_key' => 'gestao_epi_api_chavesecretadoservidor_987654321',
         'token_ttl' => 43200
     ],

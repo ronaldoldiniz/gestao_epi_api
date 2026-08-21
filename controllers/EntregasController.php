@@ -34,7 +34,7 @@ class EntregasController {
      * GET /entregas
      */
     public function index(): void {
-        Auth::requireAuth(['ADMINISTRADOR', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR', 'GESTOR']);
+        Auth::requireAuth(['ADMINISTRADOR', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR', 'GESTOR', 'RH_ADMINISTRATIVO']);
         
         $entregas = $this->entregaModel->findAll();
         foreach ($entregas as &$entrega) {
@@ -47,7 +47,7 @@ class EntregasController {
      * GET /entregas/{id}
      */
     public function show(string $id): void {
-        Auth::requireAuth(['ADMINISTRADOR', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR', 'GESTOR']);
+        Auth::requireAuth(['ADMINISTRADOR', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR', 'GESTOR', 'RH_ADMINISTRATIVO']);
         
         $entrId = (int)$id;
         $entrega = $this->entregaModel->findById($entrId);
@@ -65,7 +65,7 @@ class EntregasController {
      * GET /entregas/funcionario/{fun_id}
      */
     public function showByFuncionario(string $funId): void {
-        Auth::requireAuth(['ADMINISTRADOR', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR', 'GESTOR']);
+        Auth::requireAuth(['ADMINISTRADOR', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR', 'GESTOR', 'RH_ADMINISTRATIVO']);
         
         $fId = (int)$funId;
         $funcionario = $this->funcionarioModel->findById($fId, true);
