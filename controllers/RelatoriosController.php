@@ -164,7 +164,7 @@ class RelatoriosController {
 
         // Parâmetros opcionais de filtros
         $funcId = isset($_GET['funcionario_id']) && $_GET['funcionario_id'] !== '' ? (int)$_GET['funcionario_id'] : null;
-        $funcNome = isset($_GET['funcionario_nome']) && $_GET['funcionario_nome'] !== '' ? trim($_GET['funcionario_nome']) : null;
+        $funcNome = isset($_GET['funcionario_nome']) && $_GET['funcionario_nome'] !== '' && strtolower(trim($_GET['funcionario_nome'])) !== 'todos' ? trim($_GET['funcionario_nome']) : null;
         $departamento = isset($_GET['departamento']) && $_GET['departamento'] !== '' ? trim($_GET['departamento']) : null;
         $cargo = isset($_GET['cargo']) && $_GET['cargo'] !== '' ? trim($_GET['cargo']) : null;
         $epiId = isset($_GET['epi_id']) && $_GET['epi_id'] !== '' ? (int)$_GET['epi_id'] : null;
