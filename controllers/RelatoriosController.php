@@ -164,6 +164,7 @@ class RelatoriosController {
 
         // Parâmetros opcionais de filtros
         $funcId = isset($_GET['funcionario_id']) && $_GET['funcionario_id'] !== '' ? (int)$_GET['funcionario_id'] : null;
+        $funcNome = isset($_GET['funcionario_nome']) && $_GET['funcionario_nome'] !== '' ? trim($_GET['funcionario_nome']) : null;
         $departamento = isset($_GET['departamento']) && $_GET['departamento'] !== '' ? trim($_GET['departamento']) : null;
         $cargo = isset($_GET['cargo']) && $_GET['cargo'] !== '' ? trim($_GET['cargo']) : null;
         $epiId = isset($_GET['epi_id']) && $_GET['epi_id'] !== '' ? (int)$_GET['epi_id'] : null;
@@ -205,6 +206,10 @@ class RelatoriosController {
         if ($funcId !== null) {
             $whereClauses[] = "e.fun_id = :func_id";
             $params[':func_id'] = $funcId;
+        }
+        if ($funcNome !== null) {
+            $whereClauses[] = "f.fun_nome LIKE :func_nome";
+            $params[':func_nome'] = '%' . $funcNome . '%';
         }
         if ($departamento !== null) {
             $whereClauses[] = "f.fun_departamento LIKE :departamento";
