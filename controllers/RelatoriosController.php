@@ -384,7 +384,7 @@ class RelatoriosController {
         // --- 7. AGRUPAMENTO POR FUNCIONÁRIO ---
         $sqlGroupFunc = "SELECT 
                              COALESCE(f.fun_nome, 'DESCONHECIDO') as funcionario,
-                             COUNT(DISTINCT i.item_id) as itens,
+                             COUNT(DISTINCT i.epi_id) as itens,
                              SUM(i.item_quantidade) as unidades
                            FROM itens_entrega i
                            JOIN entrega_epis e ON i.entr_id = e.entr_id
