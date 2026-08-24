@@ -193,7 +193,7 @@ class EntregasController {
         $maxAttempts = $config['security']['max_pin_attempts'] ?? 3;
         $secretKey = $config['app']['secret_key'];
 
-        if (!password_verify($pin, $assinatura['ass_senha_hash'])) {
+        if (!\Security\PasswordService::verify($pin, $assinatura['ass_salt'] ?? '', $assinatura['ass_senha_hash'])) {
             // Incrementa falhas e bloqueia se necessário
             $attempts = $this->assinaturaModel->incrementFailAttempts((int)$assinatura['ass_id'], $maxAttempts);
             
