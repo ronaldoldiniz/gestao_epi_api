@@ -140,6 +140,15 @@ Para uma lista detalhada contendo exemplos de requisições e respostas JSON de 
 
 ---
 
+## 🚀 Histórico de Atualizações do Backend (24/08/2026)
+
+*   **Sincronização Online do Histórico de Preços de EPIs:**
+    *   Criada a rota `GET /epis/{id}/historico-precos` no arquivo [`api.php`](file:///c:/xampp/htdocs/gestao_epi_api_5/routes/api.php) protegida por autenticação JWT (acessada pelos perfis `ADMINISTRADOR`, `TECNICO_SST`, `ALMOXARIFE_OPERADOR`, `GESTOR`, `RH_ADMINISTRATIVO`).
+    *   Implementado o método de busca ordenada `obterHistoricoPrecos(int $epiId)` no modelo [`Epi.php`](file:///c:/xampp/htdocs/gestao_epi_api_5/models/Epi.php) para retornar todo o histórico de alterações diretamente do banco centralizado na nuvem (Aiven).
+    *   Adicionada a respectiva action `historicoPrecos` no controlador [`EpisController.php`](file:///c:/xampp/htdocs/gestao_epi_api_5/controllers/EpisController.php) para responder no formato padrão de JSON da API.
+
+---
+
 ## 🚀 Histórico de Atualizações do Backend (13/08/2026)
 
 *   **Rastreabilidade do Último Login Real de Operadores:**
