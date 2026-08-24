@@ -25,16 +25,53 @@ class Usuario {
         return $user ?: null;
     }
 
-    /**
-     * Registra o aceite dos Termos de Uso
-     */
     public function aceitarTermos(int $id, ?int $dataAceite = null): bool {
-        $timestamp = $dataAceite ?? round(microtime(true) * 1000);
-        $sql = "UPDATE usuarios SET usu_aceite_termos = 1, usu_data_aceite_termos = :data_aceite WHERE usu_id = :id";
+        // 1. Busca a definicao mestre ativa da Politica de Privacidade
+        $sqlTermo = "SELECT termo_id, termo_codigo, termo_versao, termo_titulo, termo_texto_completo 
+                     FROM termos_responsabilidade 
+                     WHERE termo_codigo = 'POLITICA_PRIVACIDADE' AND termo_usu_id IS NULL AND termo_status = 'ATIVO' 
+                     LIMIT 1";
+        $stmtTermo = $this->db->query($sqlTermo);
+        $termo = $stmtTermo->fetch();
+
+        if (!$termo) {
+            throw new Exception("Politica de Privacidade mestre ativa nao encontrada no sistema.");
+        }
+
+        $termoId = (int)$termo['termo_id'];
+        $termoCodigo = $termo['termo_codigo'];
+        $termoVersao = $termo['termo_versao'];
+        $termoTitulo = $termo['termo_titulo'];
+        $textoCompleto = $termo['termo_texto_completo'];
+        $hashTermo = hash('sha256', $textoCompleto);
+
+        // Converte o timestamp (que o Android envia em milissegundos) para MySQL DATETIME
+        $timestampSec = $dataAceite ? (int)($dataAceite / 1000) : time();
+        $dataHoraAceite = date('Y-m-d H:i:s', $timestampSec);
+
+        // 2. Insere um novo registro de termos_responsabilidade representando o aceite e o snapshot
+        $sql = "INSERT INTO termos_responsabilidade (
+                    termo_codigo, termo_versao, termo_titulo, termo_texto_completo, 
+                    termo_data_inicio_vigencia, termo_status, usu_cadastro_id, termo_data_hora_cadastro,
+                    termo_usu_id, termo_texto_snapshot, termo_data_hora_aceite, termo_metodo_aceite, termo_hash_termo
+                ) VALUES (
+                    :termo_codigo, :termo_versao, :termo_titulo, :termo_texto_completo,
+                    NOW(), 'ATIVO', :usu_cadastro_id, NOW(),
+                    :termo_usu_id, :termo_texto_snapshot, :termo_data_hora_aceite, :termo_metodo_aceite, :termo_hash_termo
+                )";
+                
         $stmt = $this->db->prepare($sql);
         return $stmt->execute([
-            ':id' => $id,
-            ':data_aceite' => $timestamp
+            ':termo_codigo' => $termoCodigo,
+            ':termo_versao' => $termoVersao,
+            ':termo_titulo' => $termoTitulo,
+            ':termo_texto_completo' => $textoCompleto,
+            ':usu_cadastro_id' => $id,
+            ':termo_usu_id' => $id,
+            ':termo_texto_snapshot' => $textoCompleto,
+            ':termo_data_hora_aceite' => $dataHoraAceite,
+            ':termo_metodo_aceite' => 'INTERFACE_WEB_MOBI',
+            ':termo_hash_termo' => $hashTermo
         ]);
     }
 
@@ -44,12 +81,22 @@ class Usuario {
     public function findById(int $id): ?array {
         $sql = "SELECT u.usu_id, u.usu_login, u.usu_perfil, u.usu_status, u.usu_data_cadastro, 
                        u.usu_tentativas_falha, u.usu_data_bloqueio, u.usu_motivo_bloqueio, u.usu_exige_troca_senha,
-                       u.usu_aceite_termos, u.usu_data_aceite_termos,
-                       (SELECT MAX(log_datahora) FROM log_auditoria WHERE usu_id = u.usu_id AND log_acao = 'LOGIN') as usu_ultimo_login
-                FROM usuarios u WHERE u.usu_id = :id LIMIT 1";
+                       (SELECT MAX(log_datahora) FROM log_auditoria WHERE usu_id = u.usu_id AND log_acao = 'LOGIN') as usu_ultimo_login,
+                       t.termo_id, t.termo_data_hora_aceite
+                FROM usuarios u 
+                LEFT JOIN termos_responsabilidade t ON t.termo_usu_id = u.usu_id AND t.termo_codigo = 'POLITICA_PRIVACIDADE'
+                WHERE u.usu_id = :id 
+                ORDER BY t.termo_data_hora_aceite DESC 
+                LIMIT 1";
         $stmt = $this->db->prepare($sql);
         $stmt->execute([':id' => $id]);
         $user = $stmt->fetch();
+        
+        if ($user) {
+            $user['usu_aceite_termos'] = $user['termo_id'] !== null ? 1 : 0;
+            $user['usu_data_aceite_termos'] = $user['termo_data_hora_aceite'] ? strtotime($user['termo_data_hora_aceite']) * 1000 : null;
+        }
+        
         return $user ?: null;
     }
 
@@ -59,11 +106,29 @@ class Usuario {
     public function findAll(): array {
         $sql = "SELECT u.usu_id, u.usu_login, u.usu_perfil, u.usu_status, u.usu_data_cadastro, 
                        u.usu_tentativas_falha, u.usu_data_bloqueio, u.usu_motivo_bloqueio, u.usu_exige_troca_senha,
-                       u.usu_aceite_termos, u.usu_data_aceite_termos,
-                       (SELECT MAX(log_datahora) FROM log_auditoria WHERE usu_id = u.usu_id AND log_acao = 'LOGIN') as usu_ultimo_login
-                FROM usuarios u ORDER BY u.usu_login ASC";
+                       (SELECT MAX(log_datahora) FROM log_auditoria WHERE usu_id = u.usu_id AND log_acao = 'LOGIN') as usu_ultimo_login,
+                       t.termo_id, t.termo_data_hora_aceite
+                FROM usuarios u
+                LEFT JOIN (
+                    SELECT t1.termo_usu_id, t1.termo_id, t1.termo_data_hora_aceite
+                    FROM termos_responsabilidade t1
+                    INNER JOIN (
+                        SELECT termo_usu_id, MAX(termo_data_hora_aceite) as max_date
+                        FROM termos_responsabilidade
+                        WHERE termo_codigo = 'POLITICA_PRIVACIDADE' AND termo_usu_id IS NOT NULL
+                        GROUP BY termo_usu_id
+                    ) t2 ON t1.termo_usu_id = t2.termo_usu_id AND t1.termo_data_hora_aceite = t2.max_date
+                ) t ON t.termo_usu_id = u.usu_id
+                ORDER BY u.usu_login ASC";
         $stmt = $this->db->query($sql);
-        return $stmt->fetchAll();
+        $users = $stmt->fetchAll();
+        
+        foreach ($users as &$user) {
+            $user['usu_aceite_termos'] = $user['termo_id'] !== null ? 1 : 0;
+            $user['usu_data_aceite_termos'] = $user['termo_data_hora_aceite'] ? strtotime($user['termo_data_hora_aceite']) * 1000 : null;
+        }
+        
+        return $users;
     }
 
     /**
