@@ -128,7 +128,7 @@ class FuncionariosController {
      * PUT /funcionarios/{id}
      */
     public function update(string $id): void {
-        Auth::requireAuth(['ADMINISTRADOR', 'RH_ADMINISTRATIVO']);
+        $currentUser = Auth::requireAuth(['ADMINISTRADOR', 'RH_ADMINISTRATIVO']);
         
         $funcId = (int)$id;
         $funcionario = $this->funcionarioModel->findById($funcId, false);
