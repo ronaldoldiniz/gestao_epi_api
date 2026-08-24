@@ -29,11 +29,11 @@ VALUES (
 -- 3. Adicionar campos de versionamento e snapshot do termo em Entrega_EPIs
 ALTER TABLE Entrega_EPIs
     ADD COLUMN termo_id INT NULL,
-    ADD COLUMN termo_versao VARCHAR(20) NULL,
-    ADD COLUMN texto_termo_snapshot TEXT NULL,
-    ADD COLUMN data_hora_aceite DATETIME NULL,
-    ADD COLUMN metodo_aceite VARCHAR(30) NULL,
-    ADD COLUMN hash_termo VARCHAR(255) NULL,
+    ADD COLUMN entr_termo_versao VARCHAR(20) NULL,
+    ADD COLUMN entr_texto_termo_snapshot TEXT NULL,
+    ADD COLUMN entr_data_hora_aceite DATETIME NULL,
+    ADD COLUMN entr_metodo_aceite VARCHAR(30) NULL,
+    ADD COLUMN entr_hash_termo VARCHAR(255) NULL,
     ADD CONSTRAINT fk_entrega_termo FOREIGN KEY (termo_id) REFERENCES Termos_Responsabilidade(termo_id);
 
 -- 4. Ampliar ENUM de tipo_item na tabela EPIs para conter Uniforme e Outro

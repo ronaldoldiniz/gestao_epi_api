@@ -270,11 +270,11 @@ class EntregasController {
                 'entr_motivo' => $motivo,
                 'client_operation_id' => $clientOperationId,
                 'termo_id' => $termoId,
-                'termo_versao' => $termoVersao,
-                'texto_termo_snapshot' => $textoTermo,
-                'data_hora_aceite' => date('Y-m-d H:i:s'),
-                'metodo_aceite' => 'PIN_ELETRONICO',
-                'hash_termo' => hash('sha256', $textoTermo)
+                'entr_termo_versao' => $termoVersao,
+                'entr_texto_termo_snapshot' => $textoTermo,
+                'entr_data_hora_aceite' => date('Y-m-d H:i:s'),
+                'entr_metodo_aceite' => 'PIN_ELETRONICO',
+                'entr_hash_termo' => hash('sha256', $textoTermo)
             ]);
 
             // 8. Criar itens em Itens_Entrega e validar existências de EPIs

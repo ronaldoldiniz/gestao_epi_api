@@ -65,12 +65,12 @@ class EntregaEpi {
                     fun_id, usu_id, ass_id, entr_data_entrega, entr_hash_assinatura, 
                     entr_termo_ciencia, entr_status, entr_status_sinc, entr_validacao_senha, entr_motivo,
                     entr_client_operation_id,
-                    termo_id, termo_versao, texto_termo_snapshot, data_hora_aceite, metodo_aceite, hash_termo
+                    termo_id, entr_termo_versao, entr_texto_termo_snapshot, entr_data_hora_aceite, entr_metodo_aceite, entr_hash_termo
                 ) VALUES (
                     :fun_id, :usu_id, :ass_id, NOW(), :hash_assinatura, 
                     :termo_ciencia, :status, :status_sinc, :validacao_senha, :motivo,
                     :client_operation_id,
-                    :termo_id, :termo_versao, :texto_termo_snapshot, :data_hora_aceite, :metodo_aceite, :hash_termo
+                    :termo_id, :entr_termo_versao, :entr_texto_termo_snapshot, :entr_data_hora_aceite, :entr_metodo_aceite, :entr_hash_termo
                 )";
         
         $stmt = $this->db->prepare($sql);
@@ -86,11 +86,11 @@ class EntregaEpi {
             ':motivo' => $data['entr_motivo'] ?? null,
             ':client_operation_id' => $data['client_operation_id'] ?? null,
             ':termo_id' => $data['termo_id'] ?? null,
-            ':termo_versao' => $data['termo_versao'] ?? null,
-            ':texto_termo_snapshot' => $data['texto_termo_snapshot'] ?? null,
-            ':data_hora_aceite' => $data['data_hora_aceite'] ?? null,
-            ':metodo_aceite' => $data['metodo_aceite'] ?? null,
-            ':hash_termo' => $data['hash_termo'] ?? null
+            ':entr_termo_versao' => $data['entr_termo_versao'] ?? null,
+            ':entr_texto_termo_snapshot' => $data['entr_texto_termo_snapshot'] ?? null,
+            ':entr_data_hora_aceite' => $data['entr_data_hora_aceite'] ?? null,
+            ':entr_metodo_aceite' => $data['entr_metodo_aceite'] ?? null,
+            ':entr_hash_termo' => $data['entr_hash_termo'] ?? null
         ]);
 
         return (int)$this->db->lastInsertId();
