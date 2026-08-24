@@ -113,15 +113,15 @@ class EntregasController {
 
         // 2. Verificação de idempotência antes de qualquer alteração ou autenticação crítica (PIN lockout)
         if ($clientOperationId) {
-            $stmtOperacao = $db->prepare("SELECT * FROM operacoes_idempotentes WHERE client_operation_id = :op_id");
+            $stmtOperacao = $db->prepare("SELECT * FROM operacoes_idempotentes WHERE ope_client_operation_id = :op_id");
             $stmtOperacao->execute([':op_id' => $clientOperationId]);
             $operacao = $stmtOperacao->fetch(PDO::FETCH_ASSOC);
 
             if ($operacao) {
-                if ($operacao['status'] === 'CONCLUIDA') {
-                    $origResponse = json_decode($operacao['resposta_json'], true);
+                if ($operacao['ope_status'] === 'CONCLUIDA') {
+                    $origResponse = json_decode($operacao['ope_resposta_json'], true);
                     Response::json(true, "A operação já havia sido concluída.", $origResponse, 200);
-                } elseif ($operacao['status'] === 'PROCESSANDO') {
+                } elseif ($operacao['ope_status'] === 'PROCESSANDO') {
                     Response::json(false, "Operação em processamento concorrente.", [
                         '_is_custom_payload' => true,
                         'code' => 'OPERACAO_EM_PROCESSAMENTO'
@@ -131,7 +131,7 @@ class EntregasController {
 
             // Registra inicialmente a operação com status PROCESSANDO (trava concorrência por constraint UNIQUE)
             try {
-                $stmtInsertOp = $db->prepare("INSERT INTO operacoes_idempotentes (client_operation_id, tipo_operacao, usuario_id, funcionario_id, status, data_hora_inicio) VALUES (:op_id, 'ENTREGA_COM_DEVOLUCAO', :usu_id, :fun_id, 'PROCESSANDO', NOW())");
+                $stmtInsertOp = $db->prepare("INSERT INTO operacoes_idempotentes (ope_client_operation_id, ope_tipo_operacao, usuario_id, fun_id, ope_status, ope_data_hora_inicio) VALUES (:op_id, 'ENTREGA_COM_DEVOLUCAO', :usu_id, :fun_id, 'PROCESSANDO', NOW())");
                 $stmtInsertOp->execute([
                     ':op_id' => $clientOperationId,
                     ':usu_id' => (int)$currentUser['usu_id'],
@@ -140,14 +140,14 @@ class EntregasController {
             } catch (\PDOException $e) {
                 // Caso concorrência ocorra após o SELECT anterior (race condition) ou reenvio de request
                 if ($e->getCode() == 23000 || strpos($e->getMessage(), '1062') !== false || strpos($e->getMessage(), 'Duplicate entry') !== false) {
-                    $stmtOperacao = $db->prepare("SELECT * FROM operacoes_idempotentes WHERE client_operation_id = :op_id");
+                    $stmtOperacao = $db->prepare("SELECT * FROM operacoes_idempotentes WHERE ope_client_operation_id = :op_id");
                     $stmtOperacao->execute([':op_id' => $clientOperationId]);
                     $operacao = $stmtOperacao->fetch(PDO::FETCH_ASSOC);
                     if ($operacao) {
-                        if ($operacao['status'] === 'CONCLUIDA') {
-                            $origResponse = json_decode($operacao['resposta_json'], true);
+                        if ($operacao['ope_status'] === 'CONCLUIDA') {
+                            $origResponse = json_decode($operacao['ope_resposta_json'], true);
                             Response::json(true, "A operação já havia sido concluída.", $origResponse, 200);
-                        } elseif ($operacao['status'] === 'PROCESSANDO') {
+                        } elseif ($operacao['ope_status'] === 'PROCESSANDO') {
                             Response::json(false, "Operação em processamento concorrente.", [
                                 '_is_custom_payload' => true,
                                 'code' => 'OPERACAO_EM_PROCESSAMENTO'
@@ -561,7 +561,7 @@ class EntregasController {
             if ($clientOperationId) {
                 // Atualiza o status da idempotência para CONCLUIDA
                 $storedData = array_merge($dataResponse, ['already_processed' => false]);
-                $stmtUpdateOp = $db->prepare("UPDATE operacoes_idempotentes SET status = 'CONCLUIDA', entrega_id = :entr_id, devolucao_id = :dev_id, data_hora_conclusao = NOW(), resposta_json = :json WHERE client_operation_id = :op_id");
+                $stmtUpdateOp = $db->prepare("UPDATE operacoes_idempotentes SET ope_status = 'CONCLUIDA', ope_entrega_id = :entr_id, ope_devolucao_id = :dev_id, ope_data_hora_conclusao = NOW(), ope_resposta_json = :json WHERE ope_client_operation_id = :op_id");
                 $stmtUpdateOp->execute([
                     ':entr_id' => $entrId,
                     ':dev_id' => !empty($devolucoesProcessed) ? $devolucoesProcessed[0]['devolucao_id'] : null,
@@ -608,7 +608,7 @@ class EntregasController {
 
             if ($clientOperationId) {
                 // Atualiza o status da idempotência para FALHOU
-                $stmtUpdateOpFailed = $db->prepare("UPDATE operacoes_idempotentes SET status = 'FALHOU', erro_referencia = :ref, codigo_resultado = :code WHERE client_operation_id = :op_id");
+                $stmtUpdateOpFailed = $db->prepare("UPDATE operacoes_idempotentes SET ope_status = 'FALHOU', ope_erro_referencia = :ref, ope_codigo_resultado = :code WHERE ope_client_operation_id = :op_id");
                 $stmtUpdateOpFailed->execute([
                     ':ref' => $reference,
                     ':code' => $code,
@@ -631,7 +631,7 @@ class EntregasController {
         Auth::requireAuth(['ADMINISTRADOR', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR']);
         
         $db = Database::getConnection();
-        $stmt = $db->prepare("SELECT * FROM operacoes_idempotentes WHERE client_operation_id = :op_id LIMIT 1");
+        $stmt = $db->prepare("SELECT * FROM operacoes_idempotentes WHERE ope_client_operation_id = :op_id LIMIT 1");
         $stmt->execute([':op_id' => $clientOperationId]);
         $op = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -639,20 +639,20 @@ class EntregasController {
             Response::json(false, "Operação não encontrada.", null, 404);
         }
 
-        if ($op['status'] === 'CONCLUIDA') {
-            $respData = json_decode($op['resposta_json'], true);
+        if ($op['ope_status'] === 'CONCLUIDA') {
+            $respData = json_decode($op['ope_resposta_json'], true);
             Response::json(true, "Operação concluída.", [
                 '_is_custom_payload' => true,
                 'status' => 'CONCLUIDA',
                 'data' => $respData
             ]);
-        } elseif ($op['status'] === 'FALHOU') {
+        } elseif ($op['ope_status'] === 'FALHOU') {
             Response::json(true, "Operação falhou.", [
                 '_is_custom_payload' => true,
                 'status' => 'FALHOU',
-                'code' => $op['codigo_resultado'] ?? 'ERRO_DESCONHECIDO',
+                'code' => $op['ope_codigo_resultado'] ?? 'ERRO_DESCONHECIDO',
                 'message' => 'A transação falhou no servidor.',
-                'reference' => $op['erro_referencia'] ?? 'N/A'
+                'reference' => $op['ope_erro_referencia'] ?? 'N/A'
             ]);
         } else {
             Response::json(true, "Operação em processamento.", [
