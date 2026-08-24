@@ -48,6 +48,7 @@ $router->add('DELETE', '/funcionarios/{id}', 'FuncionariosController@destroy', [
 // ==========================================
 $router->add('GET', '/epis', 'EpisController@index', ['ADMINISTRADOR', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR', 'GESTOR', 'RH_ADMINISTRATIVO']);
 $router->add('GET', '/epis/{id}', 'EpisController@show', ['ADMINISTRADOR', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR', 'GESTOR', 'RH_ADMINISTRATIVO']);
+$router->add('GET', '/epis/{id}/historico-precos', 'EpisController@historicoPrecos', ['ADMINISTRADOR', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR', 'GESTOR', 'RH_ADMINISTRATIVO']);
 $router->add('GET', '/epis/vencidos', 'EpisController@showExpired', ['ADMINISTRADOR', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR', 'GESTOR']);
 $router->add('GET', '/epis/proximos-vencimento', 'EpisController@showNextExpiration', ['ADMINISTRADOR', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR', 'GESTOR']);
 $router->add('POST', '/epis', 'EpisController@store', ['ADMINISTRADOR', 'TECNICO_SST']);

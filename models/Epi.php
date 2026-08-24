@@ -347,4 +347,17 @@ class Epi {
 
         return (int)$this->db->lastInsertId();
     }
+
+    /**
+     * Busca o histórico de preços de um EPI específico
+     */
+    public function obterHistoricoPrecos(int $epiId): array {
+        $sql = "SELECT hist_id, epi_id, usu_id, hist_valor, hist_data_vigencia, hist_origem, hist_nota_fiscal, hist_fornecedor 
+                FROM Historico_Preco_EPI 
+                WHERE epi_id = :epi_id 
+                ORDER BY hist_data_vigencia DESC";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([':epi_id' => $epiId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 }

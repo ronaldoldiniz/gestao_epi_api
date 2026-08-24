@@ -209,4 +209,25 @@ class EpisController {
         $proximos = $this->epiModel->findNextExpirationCa($dias);
         Response::json(true, "EPIs próximos ao vencimento do C.A. (dentro de {$dias} dias) listados com sucesso.", $proximos);
     }
+
+    /**
+     * GET /epis/{id}/historico-precos
+     */
+    public function historicoPrecos(string $id): void {
+        Auth::requireAuth(['ADMINISTRADOR', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR', 'GESTOR', 'RH_ADMINISTRATIVO']);
+        $epiId = (int)$id;
+        
+        $epi = $this->epiModel->findById($epiId);
+        if (!$epi) {
+            Response::json(false, "EPI não encontrado.", null, 404);
+            return;
+        }
+
+        try {
+            $historico = $this->epiModel->obterHistoricoPrecos($epiId);
+            Response::json(true, "Histórico de preços localizado.", $historico);
+        } catch (Exception $e) {
+            Response::json(false, "Erro ao obter histórico: " . $e->getMessage(), null, 500);
+        }
+    }
 }
