@@ -64,7 +64,7 @@ class FuncionariosController {
      * POST /funcionarios
      */
     public function store(): void {
-        Auth::requireAuth(['ADMINISTRADOR', 'RH_ADMINISTRATIVO']);
+        $currentUser = Auth::requireAuth(['ADMINISTRADOR', 'RH_ADMINISTRATIVO']);
         
         $input = json_decode(file_get_contents('php://input'), true);
 
