@@ -26,6 +26,7 @@ class LogsController {
 
         $filters = [
             'usuario'       => $_GET['usuario'] ?? null,
+            'funcionario'   => $_GET['funcionario'] ?? null,
             'data_inicio'   => $_GET['data_inicio'] ?? null, // YYYY-MM-DD
             'data_fim'      => $_GET['data_fim'] ?? null,    // YYYY-MM-DD
             'acao'          => $_GET['acao'] ?? null,
@@ -34,6 +35,7 @@ class LogsController {
         ];
 
         $logs = $this->logModel->findFiltered($filters);
+        error_log("[AUDIT_FILTER] Filtros recebidos: " . json_encode($filters) . " | Resultados: " . count($logs));
         Response::json(true, "Logs de auditoria listados com sucesso.", $logs);
     }
 

@@ -20,6 +20,7 @@ class LogAuditoria {
         $sql = "SELECT l.*, u.usu_login, u.usu_perfil 
                 FROM log_auditoria l
                 LEFT JOIN usuarios u ON l.usu_id = u.usu_id
+                LEFT JOIN funcionarios f ON l.fun_id = f.fun_id
                 WHERE 1=1";
         
         $params = [];
@@ -27,6 +28,18 @@ class LogAuditoria {
         if (!empty($filters['usuario'])) {
             $sql .= " AND u.usu_login LIKE :usuario";
             $params[':usuario'] = '%' . $filters['usuario'] . '%';
+        }
+
+        if (!empty($filters['funcionario'])) {
+            $funcionarioFiltro = $filters['funcionario'];
+            if (is_numeric($funcionarioFiltro)) {
+                $sql .= " AND (f.fun_id = :funcionario_id OR f.fun_nome LIKE :funcionario_nome)";
+                $params[':funcionario_id'] = (int)$funcionarioFiltro;
+                $params[':funcionario_nome'] = '%' . $funcionarioFiltro . '%';
+            } else {
+                $sql .= " AND f.fun_nome LIKE :funcionario_nome";
+                $params[':funcionario_nome'] = '%' . $funcionarioFiltro . '%';
+            }
         }
 
         if (!empty($filters['data_inicio'])) {
