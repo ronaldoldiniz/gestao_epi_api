@@ -204,6 +204,143 @@ class LogsController {
 
                 $log['log_detalhes'] = json_encode($reconstructed, JSON_UNESCAPED_UNICODE);
             }
+        } else if (!is_array($detalhesJson) || !isset($detalhesJson['versao_log']) || $detalhesJson['versao_log'] < 2) {
+            $db = \Config\Database::getConnection();
+
+            $ocorrencia = '';
+            if (is_array($detalhesJson) && isset($detalhesJson['ocorrencia'])) {
+                $ocorrencia = $detalhesJson['ocorrencia'];
+            } else {
+                $ocorrencia = is_string($detalhesRaw) ? $detalhesRaw : '';
+            }
+
+            $reconstructed = [
+                'versao_log' => 2,
+                'origem_detalhes' => 'DADOS_HISTORICOS_RECONSTRUIDOS',
+                'resultado' => 'SUCESSO',
+                'ocorrencia' => $ocorrencia
+            ];
+
+            // 1. Responsável (Usuário)
+            $reconstructed['usuario'] = [
+                'id' => (int)$log['usu_id'],
+                'login' => $log['usu_login'] ?? 'sistema',
+                'nome' => $log['usu_login'] ?? 'Sistema',
+                'perfil' => $log['usu_perfil'] ?? 'SISTEMA'
+            ];
+
+            // 2. Funcionário
+            $funId = !empty($log['fun_id']) ? (int)$log['fun_id'] : null;
+            if ($funId) {
+                $stmtFunc = $db->prepare("SELECT fun_nome, fun_esocial, fun_departamento, fun_cargo, fun_situacao FROM funcionarios WHERE fun_id = :fun_id LIMIT 1");
+                $stmtFunc->execute([':fun_id' => $funId]);
+                $funcRow = $stmtFunc->fetch(\PDO::FETCH_ASSOC);
+                if ($funcRow) {
+                    $reconstructed['funcionario'] = [
+                        'id' => $funId,
+                        'nome' => $funcRow['fun_nome'],
+                        'matricula' => $funcRow['fun_esocial'],
+                        'departamento' => $funcRow['fun_departamento'],
+                        'cargo' => $funcRow['fun_cargo'],
+                        'situacao' => $funcRow['fun_situacao']
+                    ];
+                }
+            }
+
+            // 3. EPI / Itens
+            $epiId = !empty($log['epi_id']) ? (int)$log['epi_id'] : null;
+            $itemId = !empty($log['item_id']) ? (int)$log['item_id'] : null;
+            $entrId = !empty($log['entr_id']) ? (int)$log['entr_id'] : null;
+
+            $quantidade = 1;
+            $tamanho = null;
+            $lote = null;
+            $motivoDev = null;
+            $destinoDev = null;
+
+            if ($itemId) {
+                $stmtItem = $db->prepare("SELECT item_quantidade, item_tamanho, item_numero_lote, item_devolucao_motivo, item_devolucao_destino FROM itens_entrega WHERE item_id = :item_id LIMIT 1");
+                $stmtItem->execute([':item_id' => $itemId]);
+                $itemRow = $stmtItem->fetch(\PDO::FETCH_ASSOC);
+                if ($itemRow) {
+                    $quantidade = (int)$itemRow['item_quantidade'];
+                    $tamanho = $itemRow['item_tamanho'];
+                    $lote = $itemRow['item_numero_lote'];
+                    $motivoDev = $itemRow['item_devolucao_motivo'];
+                    $destinoDev = $itemRow['item_devolucao_destino'];
+                }
+            }
+
+            if ($epiId) {
+                $stmtEpi = $db->prepare("SELECT epi_nome, epi_ca, epi_vencimento_ca, epi_fabricante FROM epis WHERE epi_id = :epi_id LIMIT 1");
+                $stmtEpi->execute([':epi_id' => $epiId]);
+                $epiRow = $stmtEpi->fetch(\PDO::FETCH_ASSOC);
+                if ($epiRow) {
+                    $itemDet = [
+                        'id_epi' => $epiId,
+                        'nome_epi' => $epiRow['epi_nome'],
+                        'quantidade' => $quantidade,
+                        'unidade' => 'UNIDADE',
+                        'tamanho' => $tamanho ?? ($detalhesJson['tamanho'] ?? null),
+                        'lote' => $lote ?? ($detalhesJson['lote'] ?? null),
+                        'fabricante' => $epiRow['epi_fabricante'],
+                        'ca' => $epiRow['epi_ca'] ?: 'ISENTO',
+                        'validade_ca' => $epiRow['epi_vencimento_ca']
+                    ];
+
+                    if (is_array($detalhesJson)) {
+                        $motivoDesc = $detalhesJson['motivo'] ?? $motivoDev;
+                        if ($motivoDesc) {
+                            $itemDet['motivo_codigo'] = $motivoDesc;
+                            $itemDet['motivo_descricao'] = $motivoDesc;
+                        }
+                        if (isset($detalhesJson['destino']) || $destinoDev) {
+                            $itemDet['destino'] = $detalhesJson['destino'] ?? $destinoDev;
+                        }
+                    }
+
+                    $reconstructed['itens'] = [$itemDet];
+                }
+            }
+
+            // 4. Dados da entrega associada
+            $motivoGeral = 'OUTROS';
+            $statusPost = 'FINALIZADA';
+            if ($entrId) {
+                $stmtEntr = $db->prepare("SELECT entr_motivo, entr_status, entr_data_entrega, entr_validacao_senha FROM entrega_epis WHERE entr_id = :entr_id LIMIT 1");
+                $stmtEntr->execute([':entr_id' => $entrId]);
+                $entrRow = $stmtEntr->fetch(\PDO::FETCH_ASSOC);
+                if ($entrRow) {
+                    $motivoGeral = $entrRow['entr_motivo'];
+                    $statusPost = $entrRow['entr_status'];
+
+                    $reconstructed['entrega'] = [
+                        'id' => $entrId,
+                        'status_anterior' => 'PENDENTE',
+                        'status_posterior' => $statusPost,
+                        'motivo_geral' => $motivoGeral,
+                        'data_finalizacao' => $entrRow['entr_data_entrega'],
+                        'quantidade_itens' => $epiId ? 1 : 0,
+                        'quantidade_unidades' => $quantidade,
+                        'assinatura_validada' => $entrRow['entr_validacao_senha'] === 'VALIDADA'
+                    ];
+                }
+            }
+
+            if (!isset($reconstructed['entrega'])) {
+                $reconstructed['entrega'] = [
+                    'id' => (int)$log['log_registro_id'],
+                    'status_anterior' => '-',
+                    'status_posterior' => $statusPost,
+                    'motivo_geral' => $motivoGeral,
+                    'data_finalizacao' => $log['log_datahora'],
+                    'quantidade_itens' => $epiId ? 1 : 0,
+                    'quantidade_unidades' => $quantidade,
+                    'assinatura_validada' => false
+                ];
+            }
+
+            $log['log_detalhes'] = json_encode($reconstructed, JSON_UNESCAPED_UNICODE);
         }
 
         Response::json(true, "Log de auditoria localizado com sucesso.", $log);
