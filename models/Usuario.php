@@ -26,16 +26,16 @@ class Usuario {
     }
 
     public function aceitarTermos(int $id, ?int $dataAceite = null): bool {
-        // 1. Busca a definicao mestre ativa da Politica de Privacidade
+        // 1. Busca a definicao mestre ativa dos Termos e Politicas (LGPD)
         $sqlTermo = "SELECT termo_id, termo_codigo, termo_versao, termo_titulo, termo_texto_completo 
                      FROM termos_responsabilidade 
-                     WHERE termo_codigo = 'POLITICA_PRIVACIDADE' AND termo_usu_id IS NULL AND termo_status = 'ATIVO' 
+                     WHERE termo_codigo = 'TERMOS_POLITICAS_LGPD' AND termo_usu_id IS NULL AND termo_status = 'ATIVO' 
                      LIMIT 1";
         $stmtTermo = $this->db->query($sqlTermo);
         $termo = $stmtTermo->fetch();
 
         if (!$termo) {
-            throw new Exception("Politica de Privacidade mestre ativa nao encontrada no sistema.");
+            throw new Exception("Termos e Politicas (LGPD) mestre ativo nao encontrado no sistema.");
         }
 
         $termoId = (int)$termo['termo_id'];
@@ -84,7 +84,7 @@ class Usuario {
                        (SELECT MAX(log_datahora) FROM log_auditoria WHERE usu_id = u.usu_id AND log_acao = 'LOGIN') as usu_ultimo_login,
                        t.termo_id, t.termo_data_hora_aceite
                 FROM usuarios u 
-                LEFT JOIN termos_responsabilidade t ON t.termo_usu_id = u.usu_id AND t.termo_codigo = 'POLITICA_PRIVACIDADE'
+                LEFT JOIN termos_responsabilidade t ON t.termo_usu_id = u.usu_id AND t.termo_codigo = 'TERMOS_POLITICAS_LGPD' AND t.termo_versao = '1.0' AND t.termo_data_hora_aceite IS NOT NULL
                 WHERE u.usu_id = :id 
                 ORDER BY t.termo_data_hora_aceite DESC 
                 LIMIT 1";
@@ -115,7 +115,7 @@ class Usuario {
                     INNER JOIN (
                         SELECT termo_usu_id, MAX(termo_data_hora_aceite) as max_date
                         FROM termos_responsabilidade
-                        WHERE termo_codigo = 'POLITICA_PRIVACIDADE' AND termo_usu_id IS NOT NULL
+                        WHERE termo_codigo = 'TERMOS_POLITICAS_LGPD' AND termo_versao = '1.0' AND termo_usu_id IS NOT NULL
                         GROUP BY termo_usu_id
                     ) t2 ON t1.termo_usu_id = t2.termo_usu_id AND t1.termo_data_hora_aceite = t2.max_date
                 ) t ON t.termo_usu_id = u.usu_id

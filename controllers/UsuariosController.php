@@ -132,11 +132,8 @@ class UsuariosController {
             Response::json(false, "Este login de usuário já está cadastrado.", null, 409);
         }
 
-        // Se senha_temporaria for usada ou exigir_troca_senha for passado como true
+        // Força a exigência de troca de senha por se tratar de senha temporária inicial
         $exigirTroca = true;
-        if (isset($input['exigir_troca_senha'])) {
-            $exigirTroca = (bool)$input['exigir_troca_senha'];
-        }
 
         try {
             $userData = [
@@ -211,9 +208,9 @@ class UsuariosController {
             $updatable['usu_status'] = trim($input['usu_status']);
         }
         if (isset($input['usu_exige_troca_senha'])) {
-            $updatable['usu_exige_troca_senha'] = $input['usu_exige_troca_senha'] ? 1 : 0;
+            $updatable['usu_exige_troca_senha'] = ((int)$usuario['usu_exige_troca_senha'] === 1 || $input['usu_exige_troca_senha']) ? 1 : 0;
         } elseif (isset($input['exigir_troca_senha'])) {
-            $updatable['usu_exige_troca_senha'] = $input['exigir_troca_senha'] ? 1 : 0;
+            $updatable['usu_exige_troca_senha'] = ((int)$usuario['usu_exige_troca_senha'] === 1 || $input['exigir_troca_senha']) ? 1 : 0;
         }
 
         try {
@@ -301,10 +298,8 @@ class UsuariosController {
             Response::json(false, "O campo senha_temporaria é obrigatório.", null, 422);
         }
 
+        // Força a exigência de troca de senha por se tratar de senha temporária redefinida
         $exigirTroca = true;
-        if (isset($input['exigir_troca_senha'])) {
-            $exigirTroca = (bool)$input['exigir_troca_senha'];
-        }
 
         try {
             $this->usuarioModel->update($userId, [
