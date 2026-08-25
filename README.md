@@ -140,6 +140,17 @@ Para uma lista detalhada contendo exemplos de requisições e respostas JSON de 
 
 ---
 
+## 🚀 Histórico de Atualizações do Backend (25/08/2026)
+
+*   **Enriquecimento Dinâmico de Logs Legados (Reconstrução em Runtime):**
+    *   Atualizado o endpoint de exibição individual `GET /logs/{id}` no [`LogsController.php`](file:///c:/xampp/htdocs/gestao_epi_api_5/controllers/LogsController.php) para reconstruir dinamicamente dados do EPI (lote, CA, fabricante) e do colaborador (cargo, matrícula) para logs históricos antigos que não possuíam o JSON rico estruturado v2.
+*   **Filtro por Funcionário na API de Logs:**
+    *   Integrado o parâmetro `funcionario` na filtragem do endpoint `GET /logs` no model [`LogAuditoria.php`](file:///c:/xampp/htdocs/gestao_epi_api_5/models/LogAuditoria.php) permitindo cruzamentos avançados de logs vinculados a funcionários específicos por nome ou ID.
+*   **Resolução de Conflito de Parâmetros no PDO (Bug HY093):**
+    *   Ajustada a query de busca textual no model [`LogAuditoria.php`](file:///c:/xampp/htdocs/gestao_epi_api_5/models/LogAuditoria.php) para desmembrar a tag duplicada `:palavra_chave` em tags exclusivas (`:palavra_chave_detalhes`, `:palavra_chave_acao`, etc.), corrigindo o erro `SQLSTATE[HY093]` em servidores de produção com emulação de prepared statements desativada.
+
+---
+
 ## 🚀 Histórico de Atualizações do Backend (24/08/2026)
 
 *   **Sincronização Online do Histórico de Preços de EPIs:**
