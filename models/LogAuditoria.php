@@ -63,12 +63,16 @@ class LogAuditoria {
         }
 
         if (!empty($filters['palavra_chave'])) {
-            $sql .= " AND (l.log_detalhes LIKE :palavra_chave 
-                           OR l.log_acao LIKE :palavra_chave 
-                           OR l.log_tabela LIKE :palavra_chave 
-                           OR u.usu_login LIKE :palavra_chave 
+            $sql .= " AND (l.log_detalhes LIKE :palavra_chave_detalhes 
+                           OR l.log_acao LIKE :palavra_chave_acao 
+                           OR l.log_tabela LIKE :palavra_chave_tabela 
+                           OR u.usu_login LIKE :palavra_chave_usuario 
                            OR l.log_registro_id = :palavra_chave_exact)";
-            $params[':palavra_chave'] = '%' . $filters['palavra_chave'] . '%';
+            $val = '%' . $filters['palavra_chave'] . '%';
+            $params[':palavra_chave_detalhes'] = $val;
+            $params[':palavra_chave_acao'] = $val;
+            $params[':palavra_chave_tabela'] = $val;
+            $params[':palavra_chave_usuario'] = $val;
             $params[':palavra_chave_exact'] = is_numeric($filters['palavra_chave']) ? (int)$filters['palavra_chave'] : -1;
         }
 
