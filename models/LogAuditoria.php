@@ -18,8 +18,8 @@ class LogAuditoria {
      */
     public function findFiltered(array $filters): array {
         $sql = "SELECT l.*, u.usu_login, u.usu_perfil 
-                FROM Log_Auditoria l
-                LEFT JOIN Usuarios u ON l.usu_id = u.usu_id
+                FROM log_auditoria l
+                LEFT JOIN usuarios u ON l.usu_id = u.usu_id
                 WHERE 1=1";
         
         $params = [];
@@ -71,8 +71,8 @@ class LogAuditoria {
      */
     public function findById(int $id): ?array {
         $sql = "SELECT l.*, u.usu_login, u.usu_perfil 
-                FROM Log_Auditoria l
-                LEFT JOIN Usuarios u ON l.usu_id = u.usu_id
+                FROM log_auditoria l
+                LEFT JOIN usuarios u ON l.usu_id = u.usu_id
                 WHERE l.log_id = :id
                 LIMIT 1";
         $stmt = $this->db->prepare($sql);
