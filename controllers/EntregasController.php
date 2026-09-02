@@ -371,7 +371,6 @@ class EntregasController {
                     // Vincula atomicamente o item anterior ao novo termo de entrega
                     $stmtVinculo = $db->prepare("UPDATE itens_entrega SET item_devolucao_vinculo_entrega_id = :entr_id, item_devolucao_vinculo_item_id = :item_id, item_devolucao_tipo_operacao = :vinculo_tipo_op WHERE item_id = :item_ant_id");
                     $stmtVinculo->execute([
-                        ":status_concluida" => "CONCLUIDA",
                     ":entr_id" => $entrId,
                         ":vinculo_tipo_op" => "DEVOLUCAO_VINCULADA_A_NOVA_ENTREGA",
                         ":item_id" => $novoItemId,
@@ -446,7 +445,6 @@ class EntregasController {
                 $stmtUpdateOp->execute([
                     ":status_concluida" => "CONCLUIDA",
                     ":entr_id" => $entrId,
-                        ":vinculo_tipo_op" => "DEVOLUCAO_VINCULADA_A_NOVA_ENTREGA",
                     ":dev_id" => !empty($devolucoesProcessed) ? $devolucoesProcessed[0]["devolucao_id"] : null,
                     ":json" => json_encode(array_merge($storedData, ["already_processed" => true]), JSON_UNESCAPED_UNICODE),
                     ":op_id" => $clientOperationId
