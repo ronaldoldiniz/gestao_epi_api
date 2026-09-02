@@ -71,7 +71,8 @@ class DevolucoesController {
                 $stmtInsertOp->execute([
                     ":op_id" => $clientOperationId,
                     ":tipo_op" => "DEVOLUCAO",
-                    ":usu_id" => (int)$currentUser["usu_id"]
+                    ":usu_id" => (int)$currentUser["usu_id"],
+                    ":status_op" => "PROCESSANDO"
                 ]);
             } catch (\PDOException $e) {
                 if ($e->getCode() == 23000 || strpos($e->getMessage(), "1062") !== false || strpos($e->getMessage(), "Duplicate entry") !== false) {

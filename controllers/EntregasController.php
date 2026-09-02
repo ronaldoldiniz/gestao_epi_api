@@ -148,7 +148,8 @@ class EntregasController {
                     ":op_id" => $clientOperationId,
                     ":tipo_op" => "ENTREGA_COM_DEVOLUCAO",
                     ":usu_id" => (int)$currentUser["usu_id"],
-                    ":fun_id" => $funId
+                    ":fun_id" => $funId,
+                    ":status_op" => "PROCESSANDO"
                 ]);
             } catch (\PDOException $e) {
                 if ($e->getCode() == 23000 || strpos($e->getMessage(), "1062") !== false || strpos($e->getMessage(), "Duplicate entry") !== false) {
