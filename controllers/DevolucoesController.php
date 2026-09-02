@@ -55,10 +55,10 @@ class DevolucoesController {
             $operacao = $stmtOperacao->fetch(PDO::FETCH_ASSOC);
 
             if ($operacao) {
-                if ($operacao["ope_status"] === "CONCLUIDA") {
+                if ($operacao["ope_status"] === 'CONCLUIDA') {
                     $origResponse = json_decode($operacao["ope_resposta_json"], true);
                     Response::json(true, "A devolucao ja havia sido concluida.", $origResponse, 200);
-                } elseif ($operacao["ope_status"] === "PROCESSANDO") {
+                } elseif ($operacao["ope_status"] === 'PROCESSANDO') {
                     Response::json(false, "Operacao em processamento concorrente.", [
                         "_is_custom_payload" => true,
                         "code" => "OPERACAO_EM_PROCESSAMENTO"
@@ -67,9 +67,10 @@ class DevolucoesController {
             }
 
             try {
-                $stmtInsertOp = $db->prepare("INSERT INTO operacoes_idempotentes (ope_client_operation_id, ope_tipo_operacao, usuario_id, ope_status, ope_data_hora_inicio) VALUES (:op_id, \"DEVOLUCAO\", :usu_id, \"PROCESSANDO\", NOW())");
+                $stmtInsertOp = $db->prepare("INSERT INTO operacoes_idempotentes (ope_client_operation_id, ope_tipo_operacao, usuario_id, ope_status, ope_data_hora_inicio) VALUES (:op_id, :tipo_op, :usu_id, :status_op, NOW())");
                 $stmtInsertOp->execute([
                     ":op_id" => $clientOperationId,
+                    ":tipo_op" => "DEVOLUCAO",
                     ":usu_id" => (int)$currentUser["usu_id"]
                 ]);
             } catch (\PDOException $e) {
@@ -78,10 +79,10 @@ class DevolucoesController {
                     $stmtOperacao->execute([":op_id" => $clientOperationId]);
                     $operacao = $stmtOperacao->fetch(PDO::FETCH_ASSOC);
                     if ($operacao) {
-                        if ($operacao["ope_status"] === "CONCLUIDA") {
+                        if ($operacao["ope_status"] === 'CONCLUIDA') {
                             $origResponse = json_decode($operacao["ope_resposta_json"], true);
                             Response::json(true, "A devolucao ja havia sido concluida.", $origResponse, 200);
-                        } elseif ($operacao["ope_status"] === "PROCESSANDO") {
+                        } elseif ($operacao["ope_status"] === 'PROCESSANDO') {
                             Response::json(false, "Operacao em processamento concorrente.", [
                                 "_is_custom_payload" => true,
                                 "code" => "OPERACAO_EM_PROCESSAMENTO"
@@ -96,14 +97,14 @@ class DevolucoesController {
         $item = $this->itemModel->findById($itemId);
         if (!$item) {
             if ($clientOperationId) {
-                $db->prepare("UPDATE operacoes_idempotentes SET ope_status = \"FALHOU\", ope_codigo_resultado = \"NAO_ENCONTRADO\" WHERE ope_client_operation_id = :op_id")->execute([":op_id" => $clientOperationId]);
+                $db->prepare("UPDATE operacoes_idempotentes SET ope_status = 'FALHOU', ope_codigo_resultado = 'NAO_ENCONTRADO' WHERE ope_client_operation_id = :op_id")->execute([":op_id" => $clientOperationId]);
             }
             Response::json(false, "Item de entrega nao localizado.", null, 404);
         }
 
         if ($item["item_status"] !== "ENTREGUE") {
             if ($clientOperationId) {
-                $db->prepare("UPDATE operacoes_idempotentes SET ope_status = \"CONCLUIDA\", ope_codigo_resultado = \"JA_DEVOLVIDO\" WHERE ope_client_operation_id = :op_id")->execute([":op_id" => $clientOperationId]);
+                $db->prepare("UPDATE operacoes_idempotentes SET ope_status = 'CONCLUIDA', ope_codigo_resultado = 'JA_DEVOLVIDO' WHERE ope_client_operation_id = :op_id")->execute([":op_id" => $clientOperationId]);
             }
             Response::json(true, "Este EPI ja se encontra com status \"" . $item["item_status"] . "\". Operacao tratada como concluida.", [
                 "item_id" => $itemId,
@@ -115,7 +116,7 @@ class DevolucoesController {
         $entrega = $this->entregaModel->findById((int)$item["entr_id"]);
         if (!$entrega) {
             if ($clientOperationId) {
-                $db->prepare("UPDATE operacoes_idempotentes SET ope_status = \"FALHOU\", ope_codigo_resultado = \"TERMO_NAO_ENCONTRADO\" WHERE ope_client_operation_id = :op_id")->execute([":op_id" => $clientOperationId]);
+                $db->prepare("UPDATE operacoes_idempotentes SET ope_status = 'FALHOU', ope_codigo_resultado = 'TERMO_NAO_ENCONTRADO' WHERE ope_client_operation_id = :op_id")->execute([":op_id" => $clientOperationId]);
             }
             Response::json(false, "Termo de entrega vinculado nao encontrado.", null, 404);
         }
@@ -141,7 +142,7 @@ class DevolucoesController {
                 "observacao" => $obs
             ], JSON_UNESCAPED_UNICODE);
             Audit::log(
-                "DEVOLUCAO", 
+                'DEVOLUCAO', 
                 "Itens_Entrega", 
                 $itemId, 
                 $detalhesLog,
@@ -161,7 +162,7 @@ class DevolucoesController {
             ];
 
             if ($clientOperationId) {
-                $stmtUpdate = $db->prepare("UPDATE operacoes_idempotentes SET ope_status = \"CONCLUIDA\", ope_devolucao_id = :dev_id, ope_data_hora_conclusao = NOW(), ope_resposta_json = :json WHERE ope_client_operation_id = :op_id");
+                $stmtUpdate = $db->prepare("UPDATE operacoes_idempotentes SET ope_status = 'CONCLUIDA', ope_devolucao_id = :dev_id, ope_data_hora_conclusao = NOW(), ope_resposta_json = :json WHERE ope_client_operation_id = :op_id");
                 $stmtUpdate->execute([
                     ":dev_id" => $itemId,
                     ":json" => json_encode(array_merge($dataResponse, ["already_processed" => true]), JSON_UNESCAPED_UNICODE),
@@ -177,7 +178,7 @@ class DevolucoesController {
                 $db->rollBack();
             }
             if ($clientOperationId) {
-                $db->prepare("UPDATE operacoes_idempotentes SET ope_status = \"FALHOU\", ope_codigo_resultado = \"ERRO_EXCEPTION\" WHERE ope_client_operation_id = :op_id")->execute([":op_id" => $clientOperationId]);
+                $db->prepare("UPDATE operacoes_idempotentes SET ope_status = 'FALHOU', ope_codigo_resultado = 'ERRO_EXCEPTION' WHERE ope_client_operation_id = :op_id")->execute([":op_id" => $clientOperationId]);
             }
             Response::json(false, "Erro ao registrar devolucao: " . $e->getMessage(), null, 500);
         }
@@ -223,3 +224,4 @@ class DevolucoesController {
         Response::json(true, "Devolucoes historicas localizadas com sucesso.", $devolucoes);
     }
 }
+

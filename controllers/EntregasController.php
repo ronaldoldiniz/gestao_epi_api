@@ -130,10 +130,10 @@ class EntregasController {
             $operacao = $stmtOperacao->fetch(PDO::FETCH_ASSOC);
 
             if ($operacao) {
-                if ($operacao["ope_status"] === "CONCLUIDA") {
+                if ($operacao["ope_status"] === 'CONCLUIDA') {
                     $origResponse = json_decode($operacao["ope_resposta_json"], true);
                     Response::json(true, "A operacao ja havia sido concluida.", $origResponse, 200);
-                } elseif ($operacao["ope_status"] === "PROCESSANDO") {
+                } elseif ($operacao["ope_status"] === 'PROCESSANDO') {
                     Response::json(false, "Operacao em processamento concorrente.", [
                         "_is_custom_payload" => true,
                         "code" => "OPERACAO_EM_PROCESSAMENTO"
@@ -143,9 +143,10 @@ class EntregasController {
 
             // Registra inicialmente a operacao com status PROCESSANDO (trava concorrencia por constraint UNIQUE)
             try {
-                $stmtInsertOp = $db->prepare("INSERT INTO operacoes_idempotentes (ope_client_operation_id, ope_tipo_operacao, usuario_id, fun_id, ope_status, ope_data_hora_inicio) VALUES (:op_id, \"ENTREGA_COM_DEVOLUCAO\", :usu_id, :fun_id, \"PROCESSANDO\", NOW())");
+                $stmtInsertOp = $db->prepare("INSERT INTO operacoes_idempotentes (ope_client_operation_id, ope_tipo_operacao, usuario_id, fun_id, ope_status, ope_data_hora_inicio) VALUES (:op_id, :tipo_op, :usu_id, :fun_id, :status_op, NOW())");
                 $stmtInsertOp->execute([
                     ":op_id" => $clientOperationId,
+                    ":tipo_op" => "ENTREGA_COM_DEVOLUCAO",
                     ":usu_id" => (int)$currentUser["usu_id"],
                     ":fun_id" => $funId
                 ]);
@@ -155,10 +156,10 @@ class EntregasController {
                     $stmtOperacao->execute([":op_id" => $clientOperationId]);
                     $operacao = $stmtOperacao->fetch(PDO::FETCH_ASSOC);
                     if ($operacao) {
-                        if ($operacao["ope_status"] === "CONCLUIDA") {
+                        if ($operacao["ope_status"] === 'CONCLUIDA') {
                             $origResponse = json_decode($operacao["ope_resposta_json"], true);
                             Response::json(true, "A operacao ja havia sido concluida.", $origResponse, 200);
-                        } elseif ($operacao["ope_status"] === "PROCESSANDO") {
+                        } elseif ($operacao["ope_status"] === 'PROCESSANDO') {
                             Response::json(false, "Operacao em processamento concorrente.", [
                                 "_is_custom_payload" => true,
                                 "code" => "OPERACAO_EM_PROCESSAMENTO"
@@ -176,7 +177,7 @@ class EntregasController {
             Response::json(false, "Funcionario nao encontrado.", null, 404);
         }
 
-        if (in_array($funcionario["fun_situacao"], ["PENDENTE_SENHA", "INATIVO", "AFASTADO", "DEMITIDO"]) || $funcionario["fun_situacao"] !== "ATIVO") {
+        if (in_array($funcionario["fun_situacao"], ["PENDENTE_SENHA", "INATIVO", "AFASTADO", "DEMITIDO"]) || $funcionario["fun_situacao"] !== 'ATIVO') {
             Response::json(false, "Entrega de EPI nao permitida. O funcionario esta com o status \"" . $funcionario["fun_situacao"] . "\".", null, 403);
         }
 
@@ -190,7 +191,7 @@ class EntregasController {
             Response::json(false, "A assinatura eletronica deste funcionario esta BLOQUEADA. Solicite o desbloqueio no RH.", null, 403);
         }
 
-        if ($assinatura["ass_status"] !== "ATIVO") {
+        if ($assinatura["ass_status"] !== 'ATIVO') {
             Response::json(false, "A assinatura eletronica deste funcionario nao esta ativa no momento.", null, 403);
         }
 
@@ -242,9 +243,9 @@ class EntregasController {
                     "SELECT COUNT(*) FROM itens_entrega i
                      JOIN entrega_epis e ON i.entr_id = e.entr_id
                      WHERE e.fun_id = :fun_id AND i.epi_id = :epi_id
-                       AND i.item_status = \"ENTREGUE\" AND i.item_data_devolucao IS NULL"
+                       AND i.item_status = :item_status_check AND i.item_data_devolucao IS NULL"
                 );
-                $stmtEmUso->execute([":fun_id" => $funId, ":epi_id" => $epiIdItem]);
+                $stmtEmUso->execute([":fun_id" => $funId, ":epi_id" => $epiIdItem, ":item_status_check" => "ENTREGUE"]);
                 $qtdEmUso = (int)$stmtEmUso->fetchColumn();
                 if (($qtdEmUso - $qtdDevolucao > 0) && ($qtdEntregue - $qtdDevolucao > 0)) {
                     throw new Exception("O EPI ID {$epiIdItem} ja esta em uso por este funcionario e ha entrega deste item sem devolucao vinculada agendada.");
@@ -252,7 +253,7 @@ class EntregasController {
             }
 
             // Recuperar Termo Vigente do Banco de Dados
-            $stmtTermo = $db->query("SELECT termo_id, termo_versao, termo_texto_completo FROM termos_responsabilidade WHERE termo_status = \"ATIVO\" LIMIT 1");
+            $stmtTermo = $db->query("SELECT termo_id, termo_versao, termo_texto_completo FROM termos_responsabilidade WHERE termo_status = 'ATIVO' LIMIT 1");
             $termoAtivo = $stmtTermo->fetch(PDO::FETCH_ASSOC);
 
             $termoId = $termoAtivo ? (int)$termoAtivo["termo_id"] : null;
@@ -306,7 +307,7 @@ class EntregasController {
                 $qtd = (int)$item["item_quantidade"];
 
                 $epi = $this->epiModel->findById($epiId);
-                if (!$epi || $epi["epi_status"] !== "ATIVO") {
+                if (!$epi || $epi["epi_status"] !== 'ATIVO') {
                     throw new Exception("EPI ID {$epiId} nao encontrado ou inativo no sistema.");
                 }
 
@@ -314,7 +315,7 @@ class EntregasController {
                     "entr_id" => $entrId,
                     "epi_id" => $epiId,
                     "item_quantidade" => $qtd,
-                    "item_status" => "ENTREGUE",
+                    "item_status" => 'ENTREGUE',
                     "item_numero_lote" => $item["item_numero_lote"] ?? null,
                     "item_tamanho" => $item["item_tamanho"] ?? null,
                     "item_motivo_entrega" => $item["item_motivo_entrega"] ?? $motivo,
@@ -355,7 +356,7 @@ class EntregasController {
                         throw new Exception("Tentativa de devolucao de EPI pertencente a outro funcionario.");
                     }
 
-                    if ($itemAnterior["item_status"] !== "ENTREGUE") {
+                    if ($itemAnterior["item_status"] !== 'ENTREGUE') {
                         throw new Exception("O item anterior ja foi devolvido ou nao possui status ativo.");
                     }
 
@@ -367,9 +368,11 @@ class EntregasController {
                     $this->itemModel->devolver($itemAnteriorId, "DEVOLVIDO", $motivoDev, $condicaoDev, $destinoDev, $obsDev);
 
                     // Vincula atomicamente o item anterior ao novo termo de entrega
-                    $stmtVinculo = $db->prepare("UPDATE itens_entrega SET item_devolucao_vinculo_entrega_id = :entr_id, item_devolucao_vinculo_item_id = :item_id, item_devolucao_tipo_operacao = \"DEVOLUCAO_VINCULADA_A_NOVA_ENTREGA\" WHERE item_id = :item_ant_id");
+                    $stmtVinculo = $db->prepare("UPDATE itens_entrega SET item_devolucao_vinculo_entrega_id = :entr_id, item_devolucao_vinculo_item_id = :item_id, item_devolucao_tipo_operacao = :vinculo_tipo_op WHERE item_id = :item_ant_id");
                     $stmtVinculo->execute([
-                        ":entr_id" => $entrId,
+                        ":status_concluida" => "CONCLUIDA",
+                    ":entr_id" => $entrId,
+                        ":vinculo_tipo_op" => "DEVOLUCAO_VINCULADA_A_NOVA_ENTREGA",
                         ":item_id" => $novoItemId,
                         ":item_ant_id" => $itemAnteriorId
                     ]);
@@ -388,7 +391,7 @@ class EntregasController {
                             "motivo_devolucao" => $motivoDev,
                             "condicao_devolucao" => $condicaoDev,
                             "destino_devolucao" => $destinoDev,
-                            "tipo_operacao" => "DEVOLUCAO_VINCULADA_A_NOVA_ENTREGA"
+                            "tipo_operacao" => 'DEVOLUCAO_VINCULADA_A_NOVA_ENTREGA'
                         ]
                     ];
                 }
@@ -438,9 +441,11 @@ class EntregasController {
 
             if ($clientOperationId) {
                 $storedData = array_merge($dataResponse, ["already_processed" => false]);
-                $stmtUpdateOp = $db->prepare("UPDATE operacoes_idempotentes SET ope_status = \"CONCLUIDA\", ope_entrega_id = :entr_id, ope_devolucao_id = :dev_id, ope_data_hora_conclusao = NOW(), ope_resposta_json = :json WHERE ope_client_operation_id = :op_id");
+                $stmtUpdateOp = $db->prepare("UPDATE operacoes_idempotentes SET ope_status = :status_concluida, ope_entrega_id = :entr_id, ope_devolucao_id = :dev_id, ope_data_hora_conclusao = NOW(), ope_resposta_json = :json WHERE ope_client_operation_id = :op_id");
                 $stmtUpdateOp->execute([
+                    ":status_concluida" => "CONCLUIDA",
                     ":entr_id" => $entrId,
+                        ":vinculo_tipo_op" => "DEVOLUCAO_VINCULADA_A_NOVA_ENTREGA",
                     ":dev_id" => !empty($devolucoesProcessed) ? $devolucoesProcessed[0]["devolucao_id"] : null,
                     ":json" => json_encode(array_merge($storedData, ["already_processed" => true]), JSON_UNESCAPED_UNICODE),
                     ":op_id" => $clientOperationId
@@ -469,8 +474,9 @@ class EntregasController {
             }
 
             if ($clientOperationId) {
-                $stmtUpdateOpFailed = $db->prepare("UPDATE operacoes_idempotentes SET ope_status = \"FALHOU\", ope_erro_referencia = :ref, ope_codigo_resultado = :code WHERE ope_client_operation_id = :op_id");
+                $stmtUpdateOpFailed = $db->prepare("UPDATE operacoes_idempotentes SET ope_status = :status_falhou, ope_erro_referencia = :ref, ope_codigo_resultado = :code WHERE ope_client_operation_id = :op_id");
                 $stmtUpdateOpFailed->execute([
+                    ":status_falhou" => "FALHOU",
                     ":ref" => $reference,
                     ":code" => $code,
                     ":op_id" => $clientOperationId
@@ -500,24 +506,25 @@ class EntregasController {
             Response::json(false, "Operacao nao encontrada.", null, 404);
         }
 
-        if ($op["ope_status"] === "CONCLUIDA") {
+        if ($op["ope_status"] === 'CONCLUIDA') {
             $respData = json_decode($op["ope_resposta_json"], true);
             Response::json(true, "Operacao concluida.", [
                 "_is_custom_payload" => true,
-                "status" => "CONCLUIDA",
+                "status" => 'CONCLUIDA',
                 "data" => $respData
             ]);
-        } elseif ($op["ope_status"] === "FALHOU") {
+        } elseif ($op["ope_status"] === 'FALHOU') {
             Response::json(true, "Operacao falhou.", [
                 "_is_custom_payload" => true,
-                "status" => "FALHOU",
+                "status" => 'FALHOU',
                 "error" => $op["ope_erro_referencia"]
             ]);
         } else {
             Response::json(true, "Operacao em processamento.", [
                 "_is_custom_payload" => true,
-                "status" => "PROCESSANDO"
+                "status" => 'PROCESSANDO'
             ]);
         }
     }
 }
+

@@ -77,13 +77,13 @@ class ItemEntrega {
      */
     public function create(array $data): int {
         $sql = "INSERT INTO itens_entrega (
-                    entr_id, epi_id, item_quantidade, item_status, item_numero_lote, item_tamanho,
+                    entr_id, epi_id, item_quantidade, item_status, item_numero_lote, item_tamanho, item_motivo_entrega,
                     item_epi_nome_snapshot, item_epi_descricao_snapshot, item_epi_fabricante_snapshot,
                     item_epi_modelo_snapshot, item_epi_ca_snapshot, item_epi_validade_ca_snapshot,
                     item_epi_vida_util_snapshot, item_epi_valor_snapshot, item_epi_origem_preco_snapshot,
                     item_epi_localizacao_snapshot
                 ) VALUES (
-                    :entr_id, :epi_id, :quantidade, :status, :numero_lote, :tamanho,
+                    :entr_id, :epi_id, :quantidade, :status, :numero_lote, :tamanho, :motivo_entrega,
                     :nome, :descricao, :fabricante, :modelo, :ca, :validade_ca,
                     :vida_util, :valor, :origem_preco, :localizacao
                 )";
@@ -96,6 +96,7 @@ class ItemEntrega {
             ':status' => $data['item_status'] ?? 'ENTREGUE',
             ':numero_lote' => $data['item_numero_lote'] ?? null,
             ':tamanho' => $data['item_tamanho'] ?? null,
+            ':motivo_entrega' => $data['item_motivo_entrega'] ?? null,
             ':nome' => $data['item_epi_nome_snapshot'] ?? null,
             ':descricao' => $data['item_epi_descricao_snapshot'] ?? null,
             ':fabricante' => $data['item_epi_fabricante_snapshot'] ?? null,
