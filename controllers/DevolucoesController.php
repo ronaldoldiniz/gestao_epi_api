@@ -67,11 +67,24 @@ class DevolucoesController {
             }
 
             try {
-                $stmtInsertOp = $db->prepare("INSERT INTO operacoes_idempotentes (ope_client_operation_id, ope_tipo_operacao, usuario_id, ope_status, ope_data_hora_inicio) VALUES (:op_id, :tipo_op, :usu_id, :status_op, NOW())");
+            $funIdOp = null;
+            if (isset($input["fun_id"])) {
+                $funIdOp = (int)$input["fun_id"];
+            } else {
+                $itemPrev = $this->itemModel->findById($itemId);
+                if ($itemPrev && isset($itemPrev["entr_id"])) {
+                    $entrPrev = $this->entregaModel->findById((int)$itemPrev["entr_id"]);
+                    if ($entrPrev && isset($entrPrev["fun_id"])) {
+                        $funIdOp = (int)$entrPrev["fun_id"];
+                    }
+                }
+            }
+            $stmtInsertOp = $db->prepare("INSERT INTO operacoes_idempotentes (ope_client_operation_id, ope_tipo_operacao, usuario_id, fun_id, ope_status, ope_data_hora_inicio) VALUES (:op_id, :tipo_op, :usu_id, :fun_id, :status_op, NOW())");
                 $stmtInsertOp->execute([
                     ":op_id" => $clientOperationId,
                     ":tipo_op" => "DEVOLUCAO",
                     ":usu_id" => (int)$currentUser["usu_id"],
+                    ":fun_id" => $funIdOp,
                     ":status_op" => "PROCESSANDO"
                 ]);
             } catch (\PDOException $e) {
