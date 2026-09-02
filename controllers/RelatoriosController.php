@@ -252,6 +252,9 @@ class RelatoriosController {
         $sqlItens = "SELECT 
                         i.item_id, i.entr_id, i.epi_id, e.entr_data_entrega, e.entr_status, e.entr_motivo,
                         COALESCE(i.item_epi_nome_snapshot, ep.epi_nome) as epi_nome,
+                             COALESCE(i.item_epi_fabricante_snapshot, ep.epi_fabricante) as epi_fabricante,
+                             COALESCE(i.item_epi_modelo_snapshot, ep.epi_modelo) as epi_modelo,
+                             COALESCE(i.item_epi_ca_snapshot, ep.epi_ca) as epi_ca,
                         COALESCE(i.item_epi_fabricante_snapshot, ep.epi_fabricante) as epi_fabricante,
                         COALESCE(i.item_epi_modelo_snapshot, ep.epi_modelo) as epi_modelo,
                         COALESCE(i.item_epi_ca_snapshot, ep.epi_ca) as epi_ca,
@@ -323,6 +326,9 @@ class RelatoriosController {
         $epiCusto = $canViewCosts ? "SUM(i.item_quantidade * COALESCE(i.item_epi_valor_snapshot, ep.epi_valor))" : "NULL";
         $sqlGroupEpi = "SELECT 
                              COALESCE(i.item_epi_nome_snapshot, ep.epi_nome) as epi_nome,
+                             COALESCE(i.item_epi_fabricante_snapshot, ep.epi_fabricante) as epi_fabricante,
+                             COALESCE(i.item_epi_modelo_snapshot, ep.epi_modelo) as epi_modelo,
+                             COALESCE(i.item_epi_ca_snapshot, ep.epi_ca) as epi_ca,
                              SUM(i.item_quantidade) as quantidade,
                              COUNT(DISTINCT e.fun_id) as funcionarios,
                              $epiCusto as custo_total
@@ -331,7 +337,7 @@ class RelatoriosController {
                          LEFT JOIN funcionarios f ON e.fun_id = f.fun_id
                          LEFT JOIN epis ep ON i.epi_id = ep.epi_id
                          WHERE $whereSql
-                         GROUP BY COALESCE(i.item_epi_nome_snapshot, ep.epi_nome)
+                         GROUP BY COALESCE(i.item_epi_nome_snapshot, ep.epi_nome), COALESCE(i.item_epi_fabricante_snapshot, ep.epi_fabricante), COALESCE(i.item_epi_modelo_snapshot, ep.epi_modelo), COALESCE(i.item_epi_ca_snapshot, ep.epi_ca)
                          ORDER BY quantidade DESC, epi_nome ASC";
         $stmtGroupEpi = $this->db->prepare($sqlGroupEpi);
         foreach ($params as $key => $val) {
