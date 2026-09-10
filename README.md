@@ -166,3 +166,43 @@ Para uma lista detalhada contendo exemplos de requisições e respostas JSON de 
     *   Como a tabela `usuarios` não possui coluna física para o último login (evitando alterações de esquemas desnecessárias), criei uma subquery dinâmica na model [Usuario.php](file:///C:/xampp/htdocs/gestao_epi_api_5/models/Usuario.php#L32) para calcular a data e hora do último login de sucesso registrado na tabela de auditoria:
         `SELECT ..., (SELECT MAX(log_datahora) FROM log_auditoria WHERE usu_id = u.usu_id AND log_acao = 'LOGIN') as usu_ultimo_login FROM usuarios u`.
     *   Mapeado o campo `usu_ultimo_login` na resposta do JSON das rotas `index` (listagem geral) e `show` (busca individual) de operadores no [UsuariosController.php](file:///C:/xampp/htdocs/gestao_epi_api_5/controllers/UsuariosController.php#L34).
+
+
+---
+
+## 🆕 Atualizações e Melhorias da API (Versão 6)
+
+1. **Retorno de Hashes e Salts de Senhas para Autenticação Offline**:
+   - As consultas da model `Funcionario.php` (`findAll`, `findById`, `findByQrCode`, `findByCpf`) foram enriquecidas com `a.ass_senha_hash` e `a.ass_salt`.
+   - Permite que o aplicativo móvel armazene o hash criptografado no Room DB e valide senhas/PINs no modo offline com 100% de paridade com o MySQL central.
+
+2. **Detalhamento de Logs de Auditoria com Validade Jurídica (NR-06 / LGPD)**:
+   - O controlador `EntregasController.php` constrói a estrutura JSON V2 de auditoria contendo:
+     - `"usuario"`: ID, login, nome e perfil do operador responsável.
+     - `"funcionario"`: ID, nome, CPF, matrícula (eSocial), cargo e departamento do colaborador.
+     - `"itens"`: Array estruturado com ID, nome descritivo do EPI (`"nome_epi"`), C.A. (`"ca"`), fabricante, lote, tamanho e motivo.
+     - `"contexto"`: IP do cliente, origem (`OFFLINE`/`ONLINE`) e User Agent.
+   - Vinculação obrigatória do `usu_id` na chamada de `Audit::log(...)`, eliminando registros com responsável nulo no MySQL central.
+
+3. **Idempotência e Prevenção de Transações Duplicadas**:
+   - Tratamento de `client_operation_id` com constraint UNIQUE na tabela `operacoes_idempotentes`.
+   - Transações idênticas reenviadas por retry ou sincronização offline retornam o JSON de resposta original (`HTTP 200`) sem duplicar entregas no banco de dados.
+
+---
+
+## 🚀 Histórico de Atualizações do Backend (10/09/2026 - Versão 7.5)
+
+*   **Correção de Consulta SQL no Relatório Geral de EPIs (RelatoriosController.php):**
+    *   Adicionado o INNER JOIN epis ep ON ie.epi_id = ep.epi_id nas subqueries de agrupamento por_setor, por_motivo e por_funcionario.
+    *   Resolução do erro SQLSTATE[42S22]: Column not found: 1054 Unknown column 'ep.epi_tipo_item' in 'where clause' ao aplicar filtros por tipo/categoria de EPI.
+    *   Ajuste dos aliases da instrução SQL para retorno de trocas e devoluções (entr_id_substituicao / item_id_substituido), prevenindo vinculação com campos nulos.
+
+*   **Ajuste de Inconsistência de Coluna no Carregamento de Usuários e Permissões (Usuario.php & TermosController.php):**
+    *   Corrigida a instrução SQL de consulta de aceites de termos para utilizar a coluna nativa termo_usu_id da tabela termos_responsabilidade.
+    *   Eliminado o erro SQLSTATE[42S22]: Column not found: 1054 Unknown column 'usu_id_aceite' in 'from clause'/where clause no painel administrativo de usuários e permissões.
+    *   Manutenção e preservação da estrutura física original do banco de dados central na nuvem (Aiven Cloud MySQL).
+
+*   **Validação e Sincronização em Nuvem (Render):**
+    *   Submissão dos commits ao repositório remoto Git main (
+onaldoldiniz/gestao_epi_api).
+    *   Validação de deploy com status HTTP 200 e integridade das rotas em produção (https://gestao-epi-api.onrender.com/).
