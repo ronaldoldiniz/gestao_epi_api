@@ -125,7 +125,7 @@ class LogsController {
                                                     FROM itens_entrega i 
                                                     JOIN epis e ON i.epi_id = e.epi_id 
                                                     JOIN entrega_epis ent ON i.entr_id = ent.entr_id
-                                                    WHERE i.item_devolucao_vinculo_item_id = :item_id LIMIT 1");
+                                                    WHERE i.item_id_substituido = :item_id LIMIT 1");
                     $stmtDevVinculo->execute([':item_id' => $itemIns['item_id']]);
                     $devVinculoRow = $stmtDevVinculo->fetch(\PDO::FETCH_ASSOC);
 
@@ -341,6 +341,33 @@ class LogsController {
             }
 
             $log['log_detalhes'] = json_encode($reconstructed, JSON_UNESCAPED_UNICODE);
+        }
+
+        // Enriquece com usuario_afetado quando a tabela for Usuarios
+        if (strtolower($log['log_tabela'] ?? '') === 'usuarios' && !empty($log['log_registro_id'])) {
+            $detJson = json_decode($log['log_detalhes'] ?? '{}', true);
+            if (is_array($detJson) && !isset($detJson['usuario_afetado'])) {
+                try {
+                    $dbConn = \Config\Database::getConnection();
+                    $stmtAlvo = $dbConn->prepare("SELECT usu_id, usu_login, usu_perfil, usu_status FROM usuarios WHERE usu_id = :id LIMIT 1");
+                    $stmtAlvo->execute([':id' => (int)$log['log_registro_id']]);
+                    $alvoRow = $stmtAlvo->fetch(\PDO::FETCH_ASSOC);
+                    if ($alvoRow) {
+                        $detJson['usuario_afetado'] = [
+                            'id' => (int)$alvoRow['usu_id'],
+                            'login' => $alvoRow['usu_login'],
+                            'usu_login' => $alvoRow['usu_login'],
+                            'perfil' => $alvoRow['usu_perfil'],
+                            'usu_perfil' => $alvoRow['usu_perfil'],
+                            'status' => $alvoRow['usu_status'],
+                            'usu_status' => $alvoRow['usu_status']
+                        ];
+                        $log['log_detalhes'] = json_encode($detJson, JSON_UNESCAPED_UNICODE);
+                    }
+                } catch (Exception $e) {
+                    // Silencioso: não interrompe a resposta se falhar
+                }
+            }
         }
 
         Response::json(true, "Log de auditoria localizado com sucesso.", $log);
