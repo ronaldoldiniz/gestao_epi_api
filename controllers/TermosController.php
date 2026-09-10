@@ -148,7 +148,7 @@ class TermosController {
         // 3. Insere o aceite do usuário
         $sqlInsert = "INSERT INTO termos_responsabilidade (
                         termo_codigo, termo_versao, termo_titulo, termo_texto_completo,
-                        termo_data_inicio_vigencia, termo_status, usu_cadastro_id, termo_data_hora_cadastro,
+                        termo_data_inicio_vigencia, termo_status, usu_id_cadastro, termo_data_hora_cadastro,
                         termo_usu_id, termo_texto_snapshot, termo_data_hora_aceite, termo_metodo_aceite, termo_hash_termo
                       ) VALUES (
                         :termo_codigo, :termo_versao, :termo_titulo, :termo_texto_completo,
