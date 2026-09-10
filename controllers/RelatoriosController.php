@@ -237,9 +237,9 @@ class RelatoriosController {
         }
         if ($itemComCa !== null) {
             if ($itemComCa === 1) {
-                $whereClauses[] = "COALESCE(i.item_epi_ca_snapshot, ep.epi_ca) IS NOT NULL AND COALESCE(i.item_epi_ca_snapshot, ep.epi_ca) != ''";
+                $whereClauses[] = "COALESCE(ep.epi_tipo_item, 'EPI_COM_CA') = 'EPI_COM_CA' AND COALESCE(i.item_epi_ca_snapshot, ep.epi_ca) IS NOT NULL AND COALESCE(i.item_epi_ca_snapshot, ep.epi_ca) != ''";
             } else {
-                $whereClauses[] = "(COALESCE(i.item_epi_ca_snapshot, ep.epi_ca) IS NULL OR COALESCE(i.item_epi_ca_snapshot, ep.epi_ca) = '')";
+                $whereClauses[] = "(COALESCE(ep.epi_tipo_item, 'EPI_COM_CA') != 'EPI_COM_CA' OR COALESCE(i.item_epi_ca_snapshot, ep.epi_ca) IS NULL OR COALESCE(i.item_epi_ca_snapshot, ep.epi_ca) = '')";
             }
         }
 
