@@ -170,7 +170,7 @@ class RelatoriosController {
         $epiId = isset($_GET['epi_id']) && $_GET['epi_id'] !== '' ? (int)$_GET['epi_id'] : null;
         $categoria = isset($_GET['categoria']) && $_GET['categoria'] !== '' ? trim($_GET['categoria']) : null;
         $motivo = isset($_GET['motivo']) && $_GET['motivo'] !== '' ? trim($_GET['motivo']) : null;
-        $usuarioId = isset($_GET['usuario_id']) && $_GET['usuario_id'] !== '' ? (int)$_GET['usuario_id'] : null;
+        $usuarioId = isset($_GET['usu_id']) && $_GET['usu_id'] !== '' ? (int)$_GET['usu_id'] : null;
         $itemComCa = isset($_GET['item_com_ca']) && $_GET['item_com_ca'] !== '' ? (int)$_GET['item_com_ca'] : null;
 
         // Status das entregas a considerar (Padrão: FINALIZADA)
@@ -232,8 +232,8 @@ class RelatoriosController {
             $params[':motivo'] = '%' . $motivo . '%';
         }
         if ($usuarioId !== null) {
-            $whereClauses[] = "e.usu_id = :usuario_id";
-            $params[':usuario_id'] = $usuarioId;
+            $whereClauses[] = "e.usu_id = :usu_id";
+            $params[':usu_id'] = $usuarioId;
         }
         if ($itemComCa !== null) {
             if ($itemComCa === 1) {
@@ -355,6 +355,7 @@ class RelatoriosController {
                            FROM itens_entrega i
                            JOIN entrega_epis e ON i.entr_id = e.entr_id
                            LEFT JOIN funcionarios f ON e.fun_id = f.fun_id
+                           LEFT JOIN epis ep ON i.epi_id = ep.epi_id
                            WHERE $whereSql
                            GROUP BY f.fun_departamento
                            ORDER BY unidades DESC, setor ASC";
@@ -372,6 +373,7 @@ class RelatoriosController {
                             FROM itens_entrega i
                             JOIN entrega_epis e ON i.entr_id = e.entr_id
                             LEFT JOIN funcionarios f ON e.fun_id = f.fun_id
+                            LEFT JOIN epis ep ON i.epi_id = ep.epi_id
                             WHERE $whereSql
                             GROUP BY motivo
                             ORDER BY quantidade DESC";
@@ -395,6 +397,7 @@ class RelatoriosController {
                            FROM itens_entrega i
                            JOIN entrega_epis e ON i.entr_id = e.entr_id
                            LEFT JOIN funcionarios f ON e.fun_id = f.fun_id
+                           LEFT JOIN epis ep ON i.epi_id = ep.epi_id
                            WHERE $whereSql
                            GROUP BY f.fun_nome
                            ORDER BY unidades DESC, funcionario ASC
