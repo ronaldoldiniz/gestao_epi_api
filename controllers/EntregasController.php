@@ -143,7 +143,7 @@ class EntregasController {
 
             // Registra inicialmente a operacao com status PROCESSANDO (trava concorrencia por constraint UNIQUE)
             try {
-                $stmtInsertOp = $db->prepare("INSERT INTO operacoes_idempotentes (ope_client_operation_id, ope_tipo_operacao, usuario_id, fun_id, ope_status, ope_data_hora_inicio) VALUES (:op_id, :tipo_op, :usu_id, :fun_id, :status_op, NOW())");
+                $stmtInsertOp = $db->prepare("INSERT INTO operacoes_idempotentes (ope_client_operation_id, ope_tipo_operacao, usu_id, fun_id, ope_status, ope_data_hora_inicio) VALUES (:op_id, :tipo_op, :usu_id, :fun_id, :status_op, NOW())");
                 $stmtInsertOp->execute([
                     ":op_id" => $clientOperationId,
                     ":tipo_op" => "ENTREGA_COM_DEVOLUCAO",
@@ -369,7 +369,7 @@ class EntregasController {
                     $this->itemModel->devolver($itemAnteriorId, "DEVOLVIDO", $motivoDev, $condicaoDev, $destinoDev, $obsDev);
 
                     // Vincula atomicamente o item anterior ao novo termo de entrega
-                    $stmtVinculo = $db->prepare("UPDATE itens_entrega SET item_devolucao_vinculo_entrega_id = :entr_id, item_devolucao_vinculo_item_id = :item_id, item_devolucao_tipo_operacao = :vinculo_tipo_op WHERE item_id = :item_ant_id");
+                    $stmtVinculo = $db->prepare("UPDATE itens_entrega SET entr_id_substituicao = :entr_id, item_id_substituido = :item_id, item_devolucao_tipo_operacao = :vinculo_tipo_op WHERE item_id = :item_ant_id");
                     $stmtVinculo->execute([
                     ":entr_id" => $entrId,
                         ":vinculo_tipo_op" => "DEVOLUCAO_VINCULADA_A_NOVA_ENTREGA",
@@ -397,27 +397,101 @@ class EntregasController {
                 }
             }
 
-            // 9. Grava Log de Auditoria
+                                    // 9. Formata itens e dados de devolução vinculada para Log de Auditoria Completo
+            $itensFormatados = [];
+            $temDevolucaoVinculadaNoLog = false;
+            foreach ($itens as $item) {
+                $epiId = (int)$item["epi_id"];
+                $epiObj = $this->epiModel->findById($epiId);
+                
+                $substituicaoObj = [
+                    "possui_vinculo" => false
+                ];
+
+                if (isset($item["devolucao_vinculada"]) && is_array($item["devolucao_vinculada"])) {
+                    $temDevolucaoVinculadaNoLog = true;
+                    $dev = $item["devolucao_vinculada"];
+                    $itemAntId = (int)($dev["item_id_anterior"] ?? 0);
+                    $nomeEpiAnt = "Item #" . $itemAntId;
+                    if ($itemAntId > 0) {
+                        $stmtAnt = $db->prepare("SELECT e.epi_nome FROM itens_entrega i JOIN epis e ON i.epi_id = e.epi_id WHERE i.item_id = :aid LIMIT 1");
+                        $stmtAnt->execute([":aid" => $itemAntId]);
+                        $nomeFound = $stmtAnt->fetchColumn();
+                        if ($nomeFound) $nomeEpiAnt = $nomeFound;
+                    }
+
+                    $substituicaoObj = [
+                        "possui_vinculo" => true,
+                        "id_item_anterior" => $itemAntId,
+                        "nome_epi_anterior" => $nomeEpiAnt,
+                        "motivo_devolucao" => $dev["motivo"] ?? "SUBSTITUICAO",
+                        "condicao_devolucao" => $dev["condicao"] ?? "DESGASTADO",
+                        "destino_devolucao" => $dev["destino"] ?? "DESCARTE"
+                    ];
+                }
+
+                $itensFormatados[] = [
+                    "epi_id" => $epiId,
+                    "nome_epi" => $epiObj ? $epiObj["epi_nome"] : ("EPI #" . $epiId),
+                    "ca" => $epiObj ? ($epiObj["epi_ca"] ?? "Sem C.A.") : "Sem C.A.",
+                    "fabricante" => $epiObj ? ($epiObj["epi_fabricante"] ?? "") : "",
+                    "quantidade" => (int)($item["item_quantidade"] ?? 1),
+                    "tamanho" => $item["item_tamanho"] ?? null,
+                    "lote" => $item["item_numero_lote"] ?? null,
+                    "motivo_codigo" => $item["item_motivo_entrega"] ?? $motivo,
+                    "devolucao_vinculada" => $item["devolucao_vinculada"] ?? null,
+                    "substituicao" => $substituicaoObj
+                ];
+            }
+
+            $stmtOperador = $db->prepare("SELECT usu_id, usu_login, usu_perfil FROM usuarios WHERE usu_id = :uid LIMIT 1");
+            $stmtOperador->execute([":uid" => (int)$currentUser["usu_id"]]);
+            $operadorData = $stmtOperador->fetch(PDO::FETCH_ASSOC);
+
+            $txtOcorrenciaLog = $temDevolucaoVinculadaNoLog 
+                ? "Entrega n. {$entrId} com Devolução Vinculada (Substituição) finalizada para {$funcionario["fun_nome"]}. Origem: {$operationOrigin}."
+                : "Entrega n. {$entrId} finalizada para {$funcionario["fun_nome"]}. Origem: {$operationOrigin}.";
+
             $detalhesLog = json_encode([
                 "versao_log" => 2,
-                "tipo_evento" => "ENTREGA_FINALIZADA",
+                "tipo_evento" => $temDevolucaoVinculadaNoLog ? "ENTREGA_COM_DEVOLUCAO_VINCULADA" : "ENTREGA_FINALIZADA",
                 "resultado" => "SUCESSO",
                 "origem" => $operationOrigin,
                 "device_id" => $deviceId,
+                "usuario" => [
+                    "id" => (int)$currentUser["usu_id"],
+                    "login" => $operadorData ? $operadorData["usu_login"] : ("operador_" . $currentUser["usu_id"]),
+                    "nome" => $operadorData ? $operadorData["usu_login"] : ("Operador " . $currentUser["usu_id"]),
+                    "perfil" => $operadorData ? $operadorData["usu_perfil"] : "ALMOXARIFE_OPERADOR"
+                ],
+                "funcionario" => [
+                    "id" => (int)$funcionario["fun_id"],
+                    "nome" => $funcionario["fun_nome"],
+                    "cpf" => $funcionario["fun_cpf"] ?? "",
+                    "matricula" => $funcionario["fun_esocial"] ?? ("MAT-" . $funcionario["fun_id"]),
+                    "cargo" => $funcionario["fun_cargo"] ?? "Operacional",
+                    "departamento" => $funcionario["fun_departamento"] ?? "Geral"
+                ],
+                "contexto" => [
+                    "ip" => $ipOrigem,
+                    "origem" => $operationOrigin,
+                    "user_agent" => $userAgent
+                ],
                 "entrega" => [
                     "id" => $entrId,
                     "status" => "FINALIZADA",
                     "motivo_geral" => $motivo,
                     "data_finalizacao" => date("Y-m-d H:i:s"),
                     "quantidade_itens" => count($itens),
+                    "quantidade_unidades" => array_sum(array_column($itensFormatados, "quantidade")),
                     "assinatura_validada" => true,
                     "metodo_aceite" => $metodoAceite
                 ],
-                "itens" => $itens,
-                "ocorrencia" => "Entrega n. {$entrId} finalizada para {$funcionario["fun_nome"]}. Origem: {$operationOrigin}."
+                "itens" => $itensFormatados,
+                "ocorrencia" => $txtOcorrenciaLog
             ], JSON_UNESCAPED_UNICODE);
 
-            Audit::log("ENTREGA", "entrega_epis", $entrId, $detalhesLog, null, $funId, null, $entrId, null, (int)$assinatura["ass_id"]);
+            Audit::log("ENTREGA", "entrega_epis", $entrId, $detalhesLog, (int)$currentUser["usu_id"], $funId, null, $entrId, null, (int)$assinatura["ass_id"]);
 
             // 10. Confirmar transacao no MySQL
             $db->commit();

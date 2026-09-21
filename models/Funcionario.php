@@ -61,7 +61,7 @@ class Funcionario {
      * Lista todos os funcionários. A responsabilidade por mascaramento agora fica 100% no PHP.
      */
     public function findAll(): array {
-        $sql = "SELECT f.*, a.ass_status AS assinatura_status 
+        $sql = "SELECT f.*, a.ass_id, a.ass_status AS assinatura_status, a.ass_senha_hash, a.ass_salt 
                 FROM funcionarios f
                 LEFT JOIN assinatura_eletronica a ON f.fun_id = a.fun_id
                 ORDER BY f.fun_nome ASC";
@@ -75,7 +75,7 @@ class Funcionario {
      * Busca funcionário pelo ID
      */
     public function findById(int $id): ?array {
-        $sql = "SELECT f.*, a.ass_status AS assinatura_status 
+        $sql = "SELECT f.*, a.ass_id, a.ass_status AS assinatura_status, a.ass_senha_hash, a.ass_salt 
                 FROM funcionarios f
                 LEFT JOIN assinatura_eletronica a ON f.fun_id = a.fun_id
                 WHERE f.fun_id = :id LIMIT 1";
@@ -90,7 +90,7 @@ class Funcionario {
      * Busca funcionário pelo QR Code
      */
     public function findByQrCode(string $qrCode): ?array {
-        $sql = "SELECT f.*, a.ass_status AS assinatura_status 
+        $sql = "SELECT f.*, a.ass_id, a.ass_status AS assinatura_status, a.ass_senha_hash, a.ass_salt 
                 FROM funcionarios f
                 LEFT JOIN assinatura_eletronica a ON f.fun_id = a.fun_id
                 WHERE f.fun_qrcode = :qrcode LIMIT 1";

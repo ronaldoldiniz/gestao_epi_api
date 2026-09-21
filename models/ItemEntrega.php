@@ -168,8 +168,8 @@ class ItemEntrega {
                     item_devolucao_condicao = :condicao,
                     item_devolucao_destino = :destino,
                     item_devolucao_obs = :obs,
-                    item_devolucao_vinculo_entrega_id = :vinculo_entrega_id,
-                    item_devolucao_vinculo_item_id = :vinculo_item_id,
+                    entr_id_substituicao = :vinculo_entrega_id,
+                    item_id_substituido = :vinculo_item_id,
                     item_devolucao_tipo_operacao = 'DEVOLUCAO_VINCULADA_A_NOVA_ENTREGA'
                 WHERE item_id = :id";
         

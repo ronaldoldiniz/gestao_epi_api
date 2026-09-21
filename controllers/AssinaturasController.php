@@ -23,7 +23,7 @@ class AssinaturasController {
      * POST /assinaturas
      */
     public function store(): void {
-        $currentUser = Auth::requireAuth(['ADMINISTRADOR', 'RH_ADMINISTRATIVO', 'ALMOXARIFE_OPERADOR']);
+        $currentUser = Auth::requireAuth(['ADMINISTRADOR', 'RH_ADMINISTRATIVO', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR']);
         $input = json_decode(file_get_contents('php://input'), true);
 
         if (!isset($input['fun_id']) || !isset($input['pin'])) {
@@ -82,13 +82,17 @@ class AssinaturasController {
      * PUT /assinaturas/{id} (Alterar PIN diretamente sabendo o ID da assinatura)
      */
     public function update(string $id): void {
-        Auth::requireAuth(['ADMINISTRADOR', 'RH_ADMINISTRATIVO', 'ALMOXARIFE_OPERADOR']);
+        Auth::requireAuth(['ADMINISTRADOR', 'RH_ADMINISTRATIVO', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR']);
         $assId = (int)$id;
         
-        $assinatura = $this->assinaturaModel->findById($assId);
+        $assinatura = $this->assinaturaModel->findByFuncionarioId($assId);
+        if (!$assinatura) {
+            $assinatura = $this->assinaturaModel->findById($assId);
+        }
         if (!$assinatura) {
             Response::json(false, "Assinatura eletrônica não encontrada.", null, 404);
         }
+        $assId = (int)$assinatura['ass_id'];
 
         $input = json_decode(file_get_contents('php://input'), true);
         if (!isset($input['pin']) || trim((string)$input['pin']) === '') {
@@ -185,7 +189,7 @@ class AssinaturasController {
      * POST /assinaturas/redefinir
      */
     public function redefinir(): void {
-        Auth::requireAuth(['ADMINISTRADOR', 'RH_ADMINISTRATIVO', 'ALMOXARIFE_OPERADOR']);
+        Auth::requireAuth(['ADMINISTRADOR', 'RH_ADMINISTRATIVO', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR']);
         
         $input = json_decode(file_get_contents('php://input'), true);
         if (!isset($input['fun_id']) || !isset($input['pin'])) {
@@ -229,13 +233,17 @@ class AssinaturasController {
      * POST /assinaturas/bloquear/{id}
      */
     public function bloquear(string $id): void {
-        Auth::requireAuth(['ADMINISTRADOR', 'RH_ADMINISTRATIVO', 'TECNICO_SST']);
+        Auth::requireAuth(['ADMINISTRADOR', 'RH_ADMINISTRATIVO', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR']);
         $assId = (int)$id;
 
-        $assinatura = $this->assinaturaModel->findById($assId);
+        $assinatura = $this->assinaturaModel->findByFuncionarioId($assId);
+        if (!$assinatura) {
+            $assinatura = $this->assinaturaModel->findById($assId);
+        }
         if (!$assinatura) {
             Response::json(false, "Assinatura eletrônica não encontrada.", null, 404);
         }
+        $assId = (int)$assinatura['ass_id'];
 
         $input = json_decode(file_get_contents('php://input'), true);
         $motivo = $input['motivo'] ?? "Bloqueio manual realizado por operador autorizado.";
@@ -254,13 +262,17 @@ class AssinaturasController {
      * POST /assinaturas/desbloquear/{id}
      */
     public function desbloquear(string $id): void {
-        Auth::requireAuth(['ADMINISTRADOR', 'RH_ADMINISTRATIVO', 'ALMOXARIFE_OPERADOR']);
+        Auth::requireAuth(['ADMINISTRADOR', 'RH_ADMINISTRATIVO', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR']);
         $assId = (int)$id;
 
-        $assinatura = $this->assinaturaModel->findById($assId);
+        $assinatura = $this->assinaturaModel->findByFuncionarioId($assId);
+        if (!$assinatura) {
+            $assinatura = $this->assinaturaModel->findById($assId);
+        }
         if (!$assinatura) {
             Response::json(false, "Assinatura eletrônica não encontrada.", null, 404);
         }
+        $assId = (int)$assinatura['ass_id'];
 
         $db = \Config\Database::getConnection();
         try {
@@ -282,4 +294,27 @@ class AssinaturasController {
             Response::json(false, "Falha ao desbloquear assinatura: " . $e->getMessage(), null, 500);
         }
     }
+
+    /**
+     * GET /assinaturas/funcionario/{fun_id}
+     */
+    public function showByFuncionario(string $funId): void {
+        Auth::requireAuth(['ADMINISTRADOR', 'RH_ADMINISTRATIVO', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR', 'GESTOR']);
+        $id = (int)$funId;
+
+        $assinatura = $this->assinaturaModel->findByFuncionarioId($id);
+        if (!$assinatura) {
+            Response::json(false, "Assinatura eletrônica não cadastrada para este funcionário.", null, 404);
+        }
+
+        Response::json(true, "Assinatura eletrônica encontrada com sucesso.", [
+            'ass_id' => (int)$assinatura['ass_id'],
+            'fun_id' => (int)$assinatura['fun_id'],
+            'ass_status' => $assinatura['ass_status'],
+            'ass_data_cadastro' => $assinatura['ass_data_cadastro'],
+            'ass_ultimo_uso' => $assinatura['ass_ultimo_uso'],
+            'ass_tentativas_falha' => (int)$assinatura['ass_tentativas_falha']
+        ]);
+    }
+
 }
