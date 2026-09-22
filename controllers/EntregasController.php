@@ -369,7 +369,7 @@ class EntregasController {
                     $this->itemModel->devolver($itemAnteriorId, "DEVOLVIDO", $motivoDev, $condicaoDev, $destinoDev, $obsDev);
 
                     // Vincula atomicamente o item anterior ao novo termo de entrega
-                    $stmtVinculo = $db->prepare("UPDATE itens_entrega SET entr_id_substituicao = :entr_id, item_id_substituido = :item_id, item_devolucao_tipo_operacao = :vinculo_tipo_op WHERE item_id = :item_ant_id");
+                    $stmtVinculo = $db->prepare("UPDATE itens_entrega SET item_devolucao_vinculo_entrega_id = :entr_id, item_devolucao_vinculo_item_id = :item_id, item_devolucao_tipo_operacao = :vinculo_tipo_op WHERE item_id = :item_ant_id");
                     $stmtVinculo->execute([
                     ":entr_id" => $entrId,
                         ":vinculo_tipo_op" => "DEVOLUCAO_VINCULADA_A_NOVA_ENTREGA",
