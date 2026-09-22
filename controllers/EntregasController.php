@@ -143,7 +143,7 @@ class EntregasController {
 
             // Registra inicialmente a operacao com status PROCESSANDO (trava concorrencia por constraint UNIQUE)
             try {
-                $stmtInsertOp = $db->prepare("INSERT INTO operacoes_idempotentes (ope_client_operation_id, ope_tipo_operacao, usu_id, fun_id, ope_status, ope_data_hora_inicio) VALUES (:op_id, :tipo_op, :usu_id, :fun_id, :status_op, NOW())");
+                $stmtInsertOp = $db->prepare("INSERT INTO operacoes_idempotentes (ope_client_operation_id, ope_tipo_operacao, usuario_id, fun_id, ope_status, ope_data_hora_inicio) VALUES (:op_id, :tipo_op, :usu_id, :fun_id, :status_op, NOW())");
                 $stmtInsertOp->execute([
                     ":op_id" => $clientOperationId,
                     ":tipo_op" => "ENTREGA_COM_DEVOLUCAO",
