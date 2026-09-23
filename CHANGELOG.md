@@ -10,3 +10,11 @@ Todas as alterações notáveis neste projeto serão documentadas neste arquivo.
 
 - **Banco de Dados/API**: Renomeada a coluna `usuario_id` para `usu_id` na tabela `operacoes_idempotentes` para manter o padrão de nomenclatura.
 - **Documentação**: Dicionário de Dados do projeto revisado e perfeitamente sincronizado com as tabelas de `funcionarios`, `usuarios`, `assinatura_eletronica`, `epis`, `termos_responsabilidade`, `entrega_epis`, `itens_entrega`, `historico_preco_epi`, `operacoes_idempotentes`, `log_auditoria` e `Views (LGPD)`.
+
+## [2026-09-23] - Injeção Universal de Metadados em Logs de Auditoria
+
+### Adicionado
+- Implementada a "Injeção Cirúrgica Universal" no arquivo `core/Audit.php`.
+- Agora, a função estática genérica `Audit::log` (usada em todos os endpoints da API para gravar histórico) intercepta de forma nativa o payload JSON (`log_detalhes`) enviado por qualquer Controller e injeta silenciosamente um bloco auxiliar de `contexto`.
+- O bloco de contexto rastreia a origem da requisição, extraindo o header `User-Agent` personalizado que é enviado pelo App Android e formatando o ID do dispositivo utilizado na requisição.
+- Inclusão do IP de origem e introdução do atributo interno `versao_log = 2` no JSON para suportar retrocompatibilidade perfeita com o Dashboard e o Frontend sem exigir atualizações manuais nos registros do Banco de Dados.
