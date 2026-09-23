@@ -105,7 +105,7 @@ class Audit {
                 $detalhes = json_encode($detArray, JSON_UNESCAPED_UNICODE);
             }
 
-            $sql = "INSERT INTO log_auditoria (";
+            $sql = "INSERT INTO log_auditoria (
                         usu_id, fun_id, epi_id, entr_id, item_id, ass_id, hist_id,
                         log_acao, log_datahora, log_tabela, log_registro_id, log_detalhes
                     ) VALUES (
