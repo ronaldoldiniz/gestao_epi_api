@@ -85,7 +85,27 @@ class Audit {
                 $detalhes = json_encode(['ocorrencia' => "Ação '{$acao}' executada na tabela {$tabela}."], JSON_UNESCAPED_UNICODE);
             }
 
-            $sql = "INSERT INTO log_auditoria (
+                        // INJEÇÃO CIRÚRGICA UNIVERSAL: Adiciona o contexto do dispositivo caso não exista
+            $detArray = json_decode($detalhes, true);
+            if (is_array($detArray) && !isset($detArray['contexto'])) {
+                $dispositivo = $_SERVER['HTTP_X_DEVICE_INFO'] ?? $_SERVER['HTTP_USER_AGENT'] ?? 'Aparelho desconhecido';
+                if (str_starts_with($dispositivo, 'GestaoEpi_Android_')) {
+                    $dispositivo = str_replace('GestaoEpi_Android_', '', $dispositivo);
+                }
+                $detArray['contexto'] = [
+                    'origem' => 'ONLINE',
+                    'aparelho' => $dispositivo,
+                    'ip' => $_SERVER['REMOTE_ADDR'] ?? ''
+                ];
+                
+                if (!isset($detArray['versao_log'])) {
+                    $detArray['versao_log'] = 2;
+                }
+                
+                $detalhes = json_encode($detArray, JSON_UNESCAPED_UNICODE);
+            }
+
+            $sql = "INSERT INTO log_auditoria (";
                         usu_id, fun_id, epi_id, entr_id, item_id, ass_id, hist_id,
                         log_acao, log_datahora, log_tabela, log_registro_id, log_detalhes
                     ) VALUES (
