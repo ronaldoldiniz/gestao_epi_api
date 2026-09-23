@@ -229,11 +229,24 @@ class Audit {
             $ocorrencia = count($alteracoes) . " campos alterados: " . implode(", ", $nomesCampos);
         }
         
+        $dispositivo = $_SERVER['HTTP_X_DEVICE_INFO'] ?? $_SERVER['HTTP_USER_AGENT'] ?? 'Aparelho desconhecido';
+        if (str_starts_with($dispositivo, 'GestaoEpi_Android_')) {
+            $dispositivo = str_replace('GestaoEpi_Android_', '', $dispositivo);
+        }
+
+        $contexto = [
+            'origem' => 'ONLINE',
+            'aparelho' => $dispositivo,
+            'ip' => $_SERVER['REMOTE_ADDR'] ?? ''
+        ];
+
         $detalhesJson = json_encode([
+            'versao_log' => 2,
             'ocorrencia' => $ocorrencia,
             'alteracoes' => $alteracoes,
             'dados_anteriores' => array_intersect_key($oldData, array_flip(array_keys($newData))),
-            'dados_novos' => $newData
+            'dados_novos' => $newData,
+            'contexto' => $contexto
         ], JSON_UNESCAPED_UNICODE);
         
         return self::log(
