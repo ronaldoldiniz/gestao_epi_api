@@ -298,4 +298,19 @@ class Funcionario {
         $stmt = $this->db->prepare($sql);
         return $stmt->execute([':fun_id' => $funId]);
     }
+
+    /**
+     * Busca funcionário por eSocial (Matrícula)
+     */
+    public function findByEsocial(string $esocial): ?array {
+        $clean = trim($esocial);
+        if (empty($clean)) return null;
+
+        $sql = "SELECT * FROM funcionarios WHERE fun_esocial = :esocial LIMIT 1";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([':esocial' => $clean]);
+        $funcionario = $stmt->fetch();
+
+        return $funcionario ? $this->decryptFields($funcionario) : null;
+    }
 }
