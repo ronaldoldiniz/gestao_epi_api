@@ -73,7 +73,7 @@ Contém o registro dos colaboradores da empresa que utilizam e recebem os Equipa
 | `fun_cpf_iv` | `VARCHAR(64)` | NULL | | `NULL` | Vetor de inicialização (IV) da criptografia do CPF. |
 | `fun_cpf_tag` | `VARCHAR(64)` | NULL | | `NULL` | Tag de autenticação da criptografia do CPF. |
 | `fun_cpf_lookup` | `VARCHAR(64)` | NULL | | `NULL` | Hash determinístico de busca do CPF. |
-| `fun_esocial` | `VARCHAR(50)` | NOT NULL | | | Matrícula de registro ou código de identificação no eSocial. |
+| `fun_esocial` | `VARCHAR(50)` | NOT NULL | UK | | Matrícula de registro ou código de identificação no eSocial. |
 | `fun_esocial_enc` | `VARCHAR(255)` | NULL | | `NULL` | Matrícula eSocial criptografada. |
 | `fun_esocial_iv` | `VARCHAR(64)` | NULL | | `NULL` | Vetor de inicialização (IV) da matrícula eSocial. |
 | `fun_esocial_tag` | `VARCHAR(64)` | NULL | | `NULL` | Tag de autenticação da matrícula eSocial. |

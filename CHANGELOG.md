@@ -2,6 +2,20 @@
 
 Todas as alterações notáveis neste projeto serão documentadas neste arquivo.
 
+
+## [2026-09-24] - Restrição UNIQUE para Matrículas e Validação na API
+
+### Adicionado
+- **Validação de Matrícula Única na API**:
+  - Criado o método `findByEsocial()` no model `Models\Funcionario`.
+  - Adicionada checagem prévia de duplicidade de Matrícula (`findByEsocial`) nos métodos `store()` e `update()` do `Controllers\FuncionariosController`, retornando código de resposta `HTTP 409` (*"Já existe um funcionário cadastrado com esta Matrícula (eSocial)."*).
+  - Adicionado tratamento para exceção de chave duplicada `1062` referente à coluna `fun_esocial`.
+
+### Alterado / Corrigido
+- **Banco de Dados (MySQL / Aiven Cloud DB)**:
+  - Aplicada a restrição de integridade `ALTER TABLE funcionarios ADD UNIQUE KEY fun_esocial (fun_esocial);` no banco de dados central.
+  - Realizado o saneamento de registros de teste duplicados com a re-criptografia completa AES-256-GCM dos atributos `fun_esocial_enc`, `fun_esocial_iv` e `fun_esocial_tag`.
+
 ## [2026-09-22] - Correções de Sincronização e Banco de Dados
 
 ### Corrigido

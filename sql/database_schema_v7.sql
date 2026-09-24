@@ -309,7 +309,8 @@ CREATE TABLE `funcionarios` (
   `fun_qrcode` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
   PRIMARY KEY (`fun_id`),
   UNIQUE KEY `fun_cpf` (`fun_cpf`),
-  UNIQUE KEY `fun_qrcode` (`fun_qrcode`)
+  UNIQUE KEY `fun_qrcode` (`fun_qrcode`),
+  UNIQUE KEY `fun_esocial` (`fun_esocial`)
 );
 
 -- Extraindo dados da tabela `funcionarios` (23 registros)
