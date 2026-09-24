@@ -101,6 +101,7 @@ $router->add('GET', '/relatorios/epis/geral', 'RelatoriosController@relatorioGer
 // ==========================================
 // ROTAS DE DASHBOARD
 // ==========================================
+$router->add('GET', '/dashboard', 'DashboardController@index', ['ADMINISTRADOR', 'RH_ADMINISTRATIVO', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR', 'GESTOR']);
 $router->add('GET', '/dashboard/resumo', 'DashboardController@resumo', ['ADMINISTRADOR', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR', 'GESTOR']);
 $router->add('GET', '/dashboard/custos', 'DashboardController@custos', ['ADMINISTRADOR', 'GESTOR']);
 $router->add('GET', '/dashboard/top-epis', 'DashboardController@topEpis', ['ADMINISTRADOR', 'TECNICO_SST', 'ALMOXARIFE_OPERADOR', 'GESTOR']);
