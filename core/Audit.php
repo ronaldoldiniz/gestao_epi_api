@@ -141,7 +141,11 @@ class Audit {
             return null;
         }
         if (is_bool($value)) {
-            return $value ? 1 : 0;
+            return $value ? 1.0 : 0.0;
+        }
+        if ($key === 'epi_exige_tamanho' || $key === 'exige_tamanho' || $key === 'usu_aceite_termos' || $key === 'motivoEntregaTravado') {
+            if ($value === true || $value === 1 || $value === '1' || $value === 'true') return 1.0;
+            if ($value === false || $value === 0 || $value === '0' || $value === 'false') return 0.0;
         }
         if (is_numeric($value)) {
             return (float)$value;
