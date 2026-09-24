@@ -215,7 +215,7 @@ class Audit {
         $resumos = [];
         
         foreach ($newData as $key => $newValue) {
-            if (in_array($key, self::$sensitiveFields, true) || str_ends_with($key, '_id') || $key === 'id' || $key === 'fun_id' || $key === 'epi_id' || $key === 'usu_id') {
+            if (in_array($key, self::$sensitiveFields, true) || str_ends_with($key, '_id') || $key === 'id' || $key === 'fun_id' || $key === 'epi_id' || $key === 'usu_id' || $key === 'epi_validade_uso_dias') {
                 continue;
             }
             
