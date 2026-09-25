@@ -67,7 +67,7 @@ class EntregaEpi {
                     entr_client_operation_id,
                     termo_id, entr_termo_versao, entr_texto_termo_snapshot, entr_data_hora_aceite, entr_metodo_aceite, entr_hash_termo
                 ) VALUES (
-                    :fun_id, :usu_id, :ass_id, NOW(), :hash_assinatura, 
+                    :fun_id, :usu_id, :ass_id, :entr_data_entrega, :hash_assinatura, 
                     :termo_ciencia, :status, :status_sinc, :validacao_senha, :motivo,
                     :client_operation_id,
                     :termo_id, :entr_termo_versao, :entr_texto_termo_snapshot, :entr_data_hora_aceite, :entr_metodo_aceite, :entr_hash_termo

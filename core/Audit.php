@@ -110,7 +110,7 @@ class Audit {
                         log_acao, log_datahora, log_tabela, log_registro_id, log_detalhes
                     ) VALUES (
                         :usu_id, :fun_id, :epi_id, :entr_id, :item_id, :ass_id, :hist_id,
-                        :log_acao, NOW(), :log_tabela, :log_registro_id, :log_detalhes
+                        :log_acao, :log_datahora, :log_tabela, :log_registro_id, :log_detalhes
                     )";
 
             $stmt = $db->prepare($sql);
@@ -123,6 +123,7 @@ class Audit {
                 ':ass_id' => $assId,
                 ':hist_id' => $histId,
                 ':log_acao' => $acao,
+                ':log_datahora' => date('Y-m-d H:i:s'),
                 ':log_tabela' => $tabela,
                 ':log_registro_id' => $registroId,
                 ':log_detalhes' => $detalhes

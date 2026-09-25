@@ -31,7 +31,7 @@ class AssinaturaEletronica {
     public function findById(int $id): ?array {
         $sql = "SELECT * FROM assinatura_eletronica WHERE ass_id = :id LIMIT 1";
         $stmt = $this->db->prepare($sql);
-        $stmt->execute([':id' => $id]);
+        $stmt->execute([':id' => $id, ':ultimo_uso' => date('Y-m-d H:i:s')]);
         $assinatura = $stmt->fetch();
         return $assinatura ?: null;
     }
@@ -89,9 +89,9 @@ class AssinaturaEletronica {
      * Registra uso bem-sucedido atualizando o timestamp
      */
     public function registerUse(int $id): bool {
-        $sql = "UPDATE assinatura_eletronica SET ass_ultimo_uso = NOW(), ass_tentativas_falha = 0 WHERE ass_id = :id";
+        $sql = "UPDATE assinatura_eletronica SET ass_ultimo_uso = :ultimo_uso, ass_tentativas_falha = 0 WHERE ass_id = :id";
         $stmt = $this->db->prepare($sql);
-        return $stmt->execute([':id' => $id]);
+        return $stmt->execute([':id' => $id, ':ultimo_uso' => date('Y-m-d H:i:s')]);
     }
 
     /**
@@ -100,7 +100,7 @@ class AssinaturaEletronica {
     public function incrementFailAttempts(int $id, int $maxAttempts): int {
         $sql = "UPDATE assinatura_eletronica SET ass_tentativas_falha = ass_tentativas_falha + 1 WHERE ass_id = :id";
         $stmt = $this->db->prepare($sql);
-        $stmt->execute([':id' => $id]);
+        $stmt->execute([':id' => $id, ':ultimo_uso' => date('Y-m-d H:i:s')]);
 
         $assinatura = $this->findById($id);
         if ($assinatura && (int)$assinatura['ass_tentativas_falha'] >= $maxAttempts) {
@@ -137,6 +137,6 @@ class AssinaturaEletronica {
                     ass_motivo_bloqueio = NULL 
                 WHERE ass_id = :id";
         $stmt = $this->db->prepare($sql);
-        return $stmt->execute([':id' => $id]);
+        return $stmt->execute([':id' => $id, ':ultimo_uso' => date('Y-m-d H:i:s')]);
     }
 }
