@@ -143,16 +143,28 @@ class Audit {
         if (is_bool($value)) {
             return $value ? 1.0 : 0.0;
         }
-        if ($key === 'epi_exige_tamanho' || $key === 'exige_tamanho' || $key === 'usu_aceite_termos' || $key === 'motivoEntregaTravado') {
-            if ($value === true || $value === 1 || $value === '1' || $value === 'true') return 1.0;
-            if ($value === false || $value === 0 || $value === '0' || $value === 'false') return 0.0;
+        if ($value === 'true' || $value === 'false' || is_numeric($value)) {
+            $valLower = strtolower((string)$value);
+            if ($valLower === 'true' || $valLower === '1' || $valLower === '1.0') {
+                if (is_bool($value) || str_contains(strtolower($key), 'exige') || str_contains(strtolower($key), 'termos') || str_contains(strtolower($key), 'travado') || str_contains(strtolower($key), 'vinculada')) {
+                    return 1.0;
+                }
+            }
+            if ($valLower === 'false' || $valLower === '0' || $valLower === '0.0') {
+                if (is_bool($value) || str_contains(strtolower($key), 'exige') || str_contains(strtolower($key), 'termos') || str_contains(strtolower($key), 'travado') || str_contains(strtolower($key), 'vinculada')) {
+                    return 0.0;
+                }
+            }
         }
         if (is_numeric($value)) {
             return (float)$value;
         }
         $valStr = trim((string)$value);
-        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $valStr)) {
-            return $valStr;
+        if (preg_match('/^(\d{2})\/(\d{2})\/(\d{4})/', $valStr, $m)) {
+            return "{$m[3]}-{$m[2]}-{$m[1]}";
+        }
+        if (preg_match('/^(\d{4}-\d{2}-\d{2})/', $valStr, $m)) {
+            return $m[1];
         }
         return strtolower($valStr);
     }
@@ -215,7 +227,20 @@ class Audit {
         $resumos = [];
         
         foreach ($newData as $key => $newValue) {
-            if (in_array($key, self::$sensitiveFields, true) || str_ends_with($key, '_id') || $key === 'id' || $key === 'fun_id' || $key === 'epi_id' || $key === 'usu_id' || $key === 'epi_validade_uso_dias') {
+            if (in_array($key, self::$sensitiveFields, true) 
+                || str_ends_with($key, '_id') 
+                || str_ends_with($key, '_enc')
+                || str_ends_with($key, '_iv')
+                || str_ends_with($key, '_tag')
+                || str_ends_with($key, '_lookup')
+                || str_ends_with($key, '_salt')
+                || str_ends_with($key, '_hash')
+                || str_ends_with($key, '_snapshot')
+                || $key === 'id' || $key === 'fun_id' || $key === 'epi_id' || $key === 'usu_id' 
+                || $key === 'epi_validade_uso_dias'
+                || $key === 'created_at' || $key === 'updated_at' || $key === 'data_criacao' || $key === 'data_atualizacao'
+                || $key === 'client_operation_id' || $key === 'device_id' || $key === 'operation_origin'
+            ) {
                 continue;
             }
             
