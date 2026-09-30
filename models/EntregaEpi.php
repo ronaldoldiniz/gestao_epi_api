@@ -15,7 +15,7 @@ class EntregaEpi {
     }
 
     /**
-     * Lista todas as entregas de EPIs com o nome do FuncionÃ¡rio e UsuÃ¡rio
+     * Lista todas as entregas de EPIs com o nome do Funcionário e Usuário
      */
     public function findAll(): array {
         $sql = "SELECT e.*, f.fun_nome, u.usu_login 
@@ -44,7 +44,7 @@ class EntregaEpi {
     }
 
     /**
-     * Lista entregas de um funcionÃ¡rio especÃ­fico
+     * Lista entregas de um funcionário específico
      */
     public function findByFuncionarioId(int $funId): array {
         $sql = "SELECT e.*, u.usu_login 
@@ -58,7 +58,7 @@ class EntregaEpi {
     }
 
     /**
-     * Insere o cabeÃ§alho da entrega de EPIs (usado dentro de transaÃ§Ã£o)
+     * Insere o cabeçalho da entrega de EPIs (usado dentro de transação)
      */
     public function create(array $data): int {
         $sql = "INSERT INTO entrega_epis (
@@ -78,6 +78,7 @@ class EntregaEpi {
             ':fun_id' => $data['fun_id'],
             ':usu_id' => $data['usu_id'],
             ':ass_id' => $data['ass_id'],
+            ':entr_data_entrega' => $data['entr_data_entrega'] ?? date('Y-m-d H:i:s'),
             ':hash_assinatura' => $data['entr_hash_assinatura'],
             ':termo_ciencia' => $data['entr_termo_ciencia'] ?? 'SIM',
             ':status' => $data['entr_status'] ?? 'FINALIZADA',
@@ -86,11 +87,11 @@ class EntregaEpi {
             ':motivo' => $data['entr_motivo'] ?? null,
             ':client_operation_id' => $data['client_operation_id'] ?? null,
             ':termo_id' => $data['termo_id'] ?? null,
-            ':entr_termo_versao' => $data['termo_versao'] ?? null,
-            ':entr_texto_termo_snapshot' => $data['texto_termo_snapshot'] ?? null,
-            ':entr_data_hora_aceite' => $data['data_hora_aceite'] ?? null,
-            ':entr_metodo_aceite' => $data['metodo_aceite'] ?? null,
-            ':entr_hash_termo' => $data['hash_termo'] ?? null
+            ':entr_termo_versao' => $data['entr_termo_versao'] ?? ($data['termo_versao'] ?? null),
+            ':entr_texto_termo_snapshot' => $data['entr_texto_termo_snapshot'] ?? ($data['texto_termo_snapshot'] ?? null),
+            ':entr_data_hora_aceite' => $data['entr_data_hora_aceite'] ?? ($data['data_hora_aceite'] ?? null),
+            ':entr_metodo_aceite' => $data['entr_metodo_aceite'] ?? ($data['metodo_aceite'] ?? null),
+            ':entr_hash_termo' => $data['entr_hash_termo'] ?? ($data['hash_termo'] ?? null)
         ]);
 
         return (int)$this->db->lastInsertId();
@@ -114,4 +115,3 @@ class EntregaEpi {
         ]);
     }
 }
-

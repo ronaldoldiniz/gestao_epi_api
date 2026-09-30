@@ -138,7 +138,7 @@ class ItemEntrega {
      */
     public function devolver(int $id, string $status = 'DEVOLVIDO', ?string $motivo = null, ?string $condicao = null, ?string $destino = null, ?string $obs = null): bool {
         $sql = "UPDATE itens_entrega 
-                SET item_data_devolucao = '2026-09-25 19:17:11', 
+                SET item_data_devolucao = NOW(), 
                     item_status = :status,
                     item_devolucao_motivo = :motivo,
                     item_devolucao_condicao = :condicao,
