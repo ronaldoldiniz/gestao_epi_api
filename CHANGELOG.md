@@ -3,6 +3,16 @@
 Todas as alterações notáveis neste projeto serão documentadas neste arquivo.
 
 
+## [2026-09-30] - Correção de Mapeamento de Parâmetros PDO (SQLSTATE[HY093]) no Registro de Entregas e Assinaturas
+
+### Corrigido
+- **Modelo de Assinatura Eletrônica (`Models\AssinaturaEletronica`)**:
+  - Removido o marcador extra `:ultimo_uso` do array de parâmetros `$stmt->execute([...])` nos métodos `findById()`, `incrementFailAttempts()` e `unlockSignature()`. A consulta SQL para essas operações requer estritamente o parâmetro `:id`, resolvendo o lançamento da exceção `SQLSTATE[HY093]` durante a validação do PIN do colaborador.
+- **Modelo de Entrega de EPI (`Models\EntregaEpi`)**:
+  - Adicionada a chave ausente `':entr_data_entrega' => $data['entr_data_entrega'] ?? date('Y-m-d H:i:s')` no array de parâmetros do método `create()`. A instrução SQL `INSERT INTO entrega_epis` continha 17 marcadores e a ausência do parâmetro no array de execução impedia o encerramento com sucesso da transação de entrega (`ERRO_TRANSACAO_ENTREGA_DEVOLUCAO`).
+- **Modelo de Itens de Entrega (`Models\ItemEntrega`)**:
+  - Atualizado o método `devolver()` para utilizar `item_data_devolucao = NOW()`, garantindo o registro dinâmico e preciso da data/hora da devolução.
+
 ## [2026-09-25] - Uniformização Global do Fuso Horário (America/Sao_Paulo UTC-3) e Otimização da Auditoria
 
 ### Adicionado / Modificado
