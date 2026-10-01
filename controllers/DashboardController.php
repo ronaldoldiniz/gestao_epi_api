@@ -172,7 +172,7 @@ class DashboardController
             $stmt->execute([':now' => $today]);
             $caVencidos = (int)$stmt->fetch(PDO::FETCH_ASSOC)['total'];
 
-            $episVencidos = $caVencidos;
+            $episVencidos = $caVencidos + $vidaUtilVencida;
             $aVencer7Dias = $caAVencer7Dias + $vidaUtilTrocaProxima;
 
             // Entregas Hoje em São Paulo (UTC-3)
