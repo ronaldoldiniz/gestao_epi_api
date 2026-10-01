@@ -6,27 +6,18 @@ on:
       - main
 
 jobs:
-  web-deploy:
-    name: Deploy API via FTP
+  deploy:
+    name: Deploy API
     runs-on: ubuntu-latest
     steps:
-      - name: Get latest code
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Sync files to Locaweb FTP
-        uses: SamKirsch/ftp-deploy-action@v4.3.5
+      - name: FTP Deploy Locaweb
+        uses: locaweb/ftp-deploy@1.0.0
         with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
+          host: ${{ secrets.FTP_SERVER }}
+          user: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          port: 21
-          protocol: ftp
-          security: loose
-          server-dir: public_html/api/
-          exclude: |
-            **/.git*
-            **/.git*/**
-            **/node_modules/**
-            **/tests/**
-            README.md
-            Dockerfile
+          remoteDir: "public_html/api"
+          forceSsl: false
