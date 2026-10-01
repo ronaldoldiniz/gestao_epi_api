@@ -1,16 +1,16 @@
 <?php
 /**
  * Arquivo de configuração ativo da API Gestão EPI.
- * Contém credenciais de banco e chaves de segurança fixadas.
+ * Contém credenciais de banco e chaves de segurança para Locaweb.
  */
 
 return [
     'db' => [
-        'host' => 'db-gestao-epi-gestaoepi.a.aivencloud.com',
-        'port' => '10903',
-        'dbname' => 'defaultdb',
-        'username' => 'avnadmin',
-        'password' => 'AVNS_T2WnhU7_Df8MJ2CvuW0',
+        'host' => 'db_gestao_epi.mysql.dbaas.com.br',
+        'port' => '3306',
+        'dbname' => 'db_gestao_epi',
+        'username' => 'db_gestao_epi',
+        'password' => 'Gestaoepi@1',
         'charset' => 'utf8mb4'
     ],
     'app' => [
