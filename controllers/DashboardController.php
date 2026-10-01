@@ -163,7 +163,7 @@ class DashboardController
             // 5. CARDS PRINCIPAIS
             // ═══════════════════════════════════════════════════════════
 
-            // EPIs Vencidos (card) — unifica C.A. vencido + vida útil vencida em uso
+            // EPIs Vencidos (card)
             $stmt = $this->db->prepare(
                 "SELECT COUNT(*) as total FROM epis 
                  WHERE epi_status = 'VENCIDO' 
@@ -172,7 +172,7 @@ class DashboardController
             $stmt->execute([':now' => $today]);
             $caVencidos = (int)$stmt->fetch(PDO::FETCH_ASSOC)['total'];
 
-            $episVencidos = $caVencidos + $vidaUtilVencida;
+            $episVencidos = $caVencidos;
             $aVencer7Dias = $caAVencer7Dias + $vidaUtilTrocaProxima;
 
             // Entregas Hoje em São Paulo (UTC-3)
@@ -197,7 +197,7 @@ class DashboardController
             $funcionariosSemPin = (int)$stmt->fetch(PDO::FETCH_ASSOC)['total'];
 
             // Pendências
-            $pendencias = $episVencidos + $funcionariosSemPin + $vidaUtilNaoCadastrada + $semRastreabilidade;
+            $pendencias = $caVencidos + $funcionariosSemPin + $vidaUtilNaoCadastrada + $semRastreabilidade;
 
             // ═══════════════════════════════════════════════════════════
             // 6. CUSTOS
