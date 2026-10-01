@@ -3,6 +3,16 @@
 Todas as alterações notáveis neste projeto serão documentadas neste arquivo.
 
 
+## [2026-10-01] - Migração para Hospedagem Locaweb e Pipeline de Deploy CI/CD
+
+### Adicionado / Modificado
+- **Hospedagem & Banco de Dados Locaweb**:
+  - Conexão configurada para o servidor MySQL da Locaweb (`db_gestao_epi.mysql.dbaas.com.br`) em `config/config.php`.
+  - Importação e validação do schema `database_schema_v7.sql` com 19 tabelas ativas.
+- **CI/CD GitHub Actions**:
+  - Criado o arquivo `.github/workflows/deploy.yml` com integração ao `locaweb/ftp-deploy@1.0.0`.
+  - Publicação automática na pasta `/public_html/api` da Locaweb a cada `git push` na branch main.
+
 ## [2026-09-30] - Correção de Mapeamento de Parâmetros PDO (SQLSTATE[HY093]) no Registro de Entregas e Assinaturas
 
 ### Corrigido
