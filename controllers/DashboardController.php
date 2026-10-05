@@ -157,16 +157,6 @@ class DashboardController {
             $stmt->execute();
             $semRastreabilidade = (int)$stmt->fetch(PDO::FETCH_ASSOC)['total'];
 
-            // FUNCIONARIOS SEM PIN (usando tabela assinatura_eletronica)
-            $stmt = $this->db->prepare(
-                "SELECT COUNT(*) as total FROM funcionarios f 
-                 LEFT JOIN assinatura_eletronica a ON f.fun_id = a.fun_id 
-                 WHERE f.fun_situacao = 'ATIVO' 
-                 AND a.ass_id IS NULL"
-            );
-            $stmt->execute();
-            $funcionariosSemPin = (int)$stmt->fetch(PDO::FETCH_ASSOC)['total'];
-
             $episVencidos = $caVencidos + $vidaUtilVencida;
             $aVencer7Dias = $caAVencer7Dias + $vidaUtilTrocaProxima;
 
@@ -178,9 +168,6 @@ class DashboardController {
             );
             $stmt->execute([':inicio' => $todayStartSql]);
             $entregasHoje = (int)$stmt->fetch(PDO::FETCH_ASSOC)['total'];
-
-            // PENDENCIAS (Consolidacao de Pendencias do Sistema = C.A. Vencidos + Sem PIN + Sem Vida Util + Sem Rastreabilidade)
-            $pendencias = $caVencidos + $funcionariosSemPin + $vidaUtilNaoCadastrada + $semRastreabilidade;
 
             // 6. CUSTOS (usando ep.epi_valor da tabela epis)
             $stmt = $this->db->prepare(
@@ -216,6 +203,19 @@ class DashboardController {
             } else {
                 $custoAcumuladoRotulo = "Acumulado (Historico)";
             }
+
+            // FUNCIONARIOS SEM PIN (usando tabela assinatura_eletronica)
+            $stmt = $this->db->prepare(
+                "SELECT COUNT(*) as total FROM funcionarios f 
+                 LEFT JOIN assinatura_eletronica a ON f.fun_id = a.fun_id 
+                 WHERE f.fun_situacao = 'ATIVO' 
+                 AND a.ass_id IS NULL"
+            );
+            $stmt->execute();
+            $funcionariosSemPin = (int)$stmt->fetch(PDO::FETCH_ASSOC)['total'];
+
+            // PENDENCIAS (Consolidacao de Pendencias do Sistema = C.A. Vencidos + Sem PIN + Sem Vida Util + Sem Rastreabilidade)
+            $pendencias = $caVencidos + $funcionariosSemPin + $vidaUtilNaoCadastrada + $semRastreabilidade;
 
             // 7. CONFORMIDADE
             $stmt = $this->db->prepare("SELECT COUNT(*) as total FROM funcionarios WHERE fun_situacao = 'ATIVO'");
