@@ -42,15 +42,17 @@ spl_autoload_register(function (string $class) {
     $folder = strtolower($parts[0]);
     $className = $parts[1];
     
-    // Tratamento especial para o arquivo database.php que está em minúsculo
-    if ($folder === 'config' && strtolower($className) === 'database') {
-        $className = 'database';
-    }
-    
-    $file = __DIR__ . '/' . $folder . '/' . $className . '.php';
+    $possibleFiles = [
+        __DIR__ . '/' . $folder . '/' . $className . '.php',
+        __DIR__ . '/' . $folder . '/' . ucfirst($className) . '.php',
+        __DIR__ . '/' . $folder . '/' . strtolower($className) . '.php'
+    ];
 
-    if (file_exists($file)) {
-        require_once $file;
+    foreach ($possibleFiles as $file) {
+        if (file_exists($file)) {
+            require_once $file;
+            return;
+        }
     }
 });
 
