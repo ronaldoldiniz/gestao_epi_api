@@ -163,10 +163,11 @@ class DashboardController {
             $stmt->execute();
             $pendencias = (int)$stmt->fetch(PDO::FETCH_ASSOC)['total'];
 
-            // 6. CUSTOS
+            // 6. CUSTOS (usando ep.epi_valor da tabela epis)
             $stmt = $this->db->prepare(
-                "SELECT COALESCE(SUM(i.item_quantidade * i.item_valor_unitario), 0) as total 
+                "SELECT COALESCE(SUM(i.item_quantidade * ep.epi_valor), 0) as total 
                  FROM itens_entrega i 
+                 INNER JOIN epis ep ON i.epi_id = ep.epi_id
                  INNER JOIN entrega_epis e ON i.entr_id = e.entr_id 
                  WHERE e.entr_status = 'FINALIZADA' 
                  AND e.entr_data_entrega >= :inicio"
@@ -176,8 +177,9 @@ class DashboardController {
             $custoMensalRotulo = "Custo Mensal (" . date('m/Y') . ")";
 
             $stmt = $this->db->prepare(
-                "SELECT COALESCE(SUM(i.item_quantidade * i.item_valor_unitario), 0) as total 
+                "SELECT COALESCE(SUM(i.item_quantidade * ep.epi_valor), 0) as total 
                  FROM itens_entrega i 
+                 INNER JOIN epis ep ON i.epi_id = ep.epi_id
                  INNER JOIN entrega_epis e ON i.entr_id = e.entr_id 
                  WHERE e.entr_status = 'FINALIZADA'"
             );
