@@ -63,27 +63,20 @@ class DashboardController {
             $caAVencer7Dias = (int)$stmt->fetch(PDO::FETCH_ASSOC)['total'];
 
             // 2. EPIs EM USO COM VIDA UTIL OU C.A. VENCIDO / PROXIMO DE TROCA
-            // Deduplica por (fun_id, epi_id) para considerar apenas o item ativo mais recente por funcionario/EPI
+            // Busca todos os itens entregues ativos (idêntico ao dashboard.php da WEB-PHP)
             $stmt = $this->db->prepare(
                 "SELECT 
                     i.item_id, i.epi_id, e.entr_data_entrega, ep.epi_vida_util, 
                     ep.epi_vida_util_unidade, ep.epi_vida_util_tipo, ep.epi_vida_util_alerta,
-                    ep.epi_vencimento_ca, ep.epi_tipo_item,
+                    ep.epi_vencimento_ca, ep.epi_tipo_item, ep.epi_validade_uso_dias,
                     e.fun_id
                  FROM itens_entrega i
                  INNER JOIN entrega_epis e ON i.entr_id = e.entr_id
                  INNER JOIN epis ep ON i.epi_id = ep.epi_id
-                 INNER JOIN (
-                     SELECT e2.fun_id, i2.epi_id, MAX(i2.item_id) as max_item_id
-                     FROM itens_entrega i2
-                     INNER JOIN entrega_epis e2 ON i2.entr_id = e2.entr_id
-                     WHERE e2.entr_status = 'FINALIZADA'
-                     AND i2.item_data_devolucao IS NULL
-                     AND (i2.item_devolucao_motivo IS NULL OR i2.item_devolucao_motivo = '')
-                     AND (i2.item_devolucao_vinculo_entrega_id IS NULL OR i2.item_devolucao_vinculo_entrega_id = 0)
-                     GROUP BY e2.fun_id, i2.epi_id
-                 ) latest ON i.item_id = latest.max_item_id
-                 WHERE e.entr_status = 'FINALIZADA'"
+                 WHERE e.entr_status = 'FINALIZADA'
+                   AND i.item_data_devolucao IS NULL
+                   AND (i.item_devolucao_motivo IS NULL OR i.item_devolucao_motivo = '')
+                   AND (i.item_devolucao_vinculo_item_id IS NULL OR i.item_devolucao_vinculo_item_id = 0)"
             );
             $stmt->execute();
             $itensEmUso = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -107,6 +100,9 @@ class DashboardController {
                     $item['epi_vida_util'] ?? null,
                     $item['epi_vida_util_unidade'] ?? null
                 );
+                if ($duracaoDias == 0 && !empty($item['epi_validade_uso_dias'])) {
+                    $duracaoDias = (int)$item['epi_validade_uso_dias'];
+                }
 
                 if (($item['epi_vida_util_tipo'] ?? '') === 'CONTROLADO' && $duracaoDias > 0) {
                     $dataEntrega = new DateTime($item['entr_data_entrega']);
