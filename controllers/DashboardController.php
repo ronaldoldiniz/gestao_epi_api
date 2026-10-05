@@ -97,32 +97,30 @@ class DashboardController {
                 $isVencido = false;
                 $isProximo = false;
 
-                // Checa se o C.A. está vencido no item entregue
+                // 1. Checa se o C.A. está vencido no item entregue
                 if (!empty($item['epi_vencimento_ca']) && $item['epi_vencimento_ca'] !== '0000-00-00' && $item['epi_vencimento_ca'] < $today && ($item['epi_tipo_item'] ?? '') === 'EPI_COM_CA') {
                     $isVencido = true;
                 }
 
-                // Checa vida útil
-                if (($item['epi_vida_util_tipo'] ?? '') === 'CONTROLADO' && !empty($item['epi_vida_util']) && (int)$item['epi_vida_util'] > 0) {
+                // 2. Checa vida útil
+                $duracaoDias = $this->calcularVidaUtilEmDias(
+                    $item['epi_vida_util'] ?? null,
+                    $item['epi_vida_util_unidade'] ?? null
+                );
+
+                if (($item['epi_vida_util_tipo'] ?? '') === 'CONTROLADO' && $duracaoDias > 0) {
                     $dataEntrega = new DateTime($item['entr_data_entrega']);
-                    $vidaUtilDias = $this->calcularVidaUtilEmDias(
-                        (int)$item['epi_vida_util'],
-                        $item['epi_vida_util_unidade']
-                    );
+                    $dataTroca = clone $dataEntrega;
+                    $dataTroca->modify("+" . $duracaoDias . " days");
+                    $hoje = new DateTime($today);
 
-                    if ($vidaUtilDias > 0) {
-                        $dataTroca = clone $dataEntrega;
-                        $dataTroca->modify("+" . $vidaUtilDias . " days");
-                        $hoje = new DateTime($today);
-
-                        if ($dataTroca < $hoje) {
-                            $isVencido = true;
-                        } else {
-                            $diasParaTroca = (int)$hoje->diff($dataTroca)->format('%r%a');
-                            $diasAlerta = !empty($item['epi_vida_util_alerta']) ? (int)$item['epi_vida_util_alerta'] : 30;
-                            if ($diasParaTroca >= 0 && $diasParaTroca <= $diasAlerta) {
-                                $isProximo = true;
-                            }
+                    if ($dataTroca < $hoje) {
+                        $isVencido = true;
+                    } else {
+                        $diasParaTroca = (int)$hoje->diff($dataTroca)->format('%r%a');
+                        $diasAlerta = !empty($item['epi_vida_util_alerta']) ? (int)$item['epi_vida_util_alerta'] : 30;
+                        if ($diasParaTroca >= 0 && $diasParaTroca <= $diasAlerta) {
+                            $isProximo = true;
                         }
                     }
                 }
@@ -143,7 +141,7 @@ class DashboardController {
             $stmt = $this->db->prepare(
                 "SELECT COUNT(*) as total FROM epis 
                  WHERE epi_vida_util_tipo = 'CONTROLADO' 
-                 AND (epi_vida_util IS NULL OR epi_vida_util <= 0)
+                 AND (epi_vida_util IS NULL OR epi_vida_util = '' OR epi_vida_util = '0')
                  AND epi_status != 'INATIVO'"
             );
             $stmt->execute();
@@ -316,27 +314,25 @@ class DashboardController {
     }
 
     /**
-     * Converte vida util para dias com base na unidade cadastrada.
+     * Converte vida util para dias com base na unidade cadastrada ou string mista ex: "1 ANOS", "2 MESES"
      */
-    private function calcularVidaUtilEmDias(int $valor, ?string $unidade): int
+    private function calcularVidaUtilEmDias($valorRaw, ?string $unidadeRaw = null): int
     {
+        if (empty($valorRaw)) return 0;
+        $str = strtoupper(trim((string)$valorRaw . ' ' . (string)$unidadeRaw));
+        preg_match('/(\d+)/', $str, $matches);
+        if (empty($matches[1])) return 0;
+        $valor = (int)$matches[1];
         if ($valor <= 0) return 0;
 
-        $unidade = strtoupper(trim($unidade ?? 'DIAS'));
-        switch ($unidade) {
-            case 'MESES':
-            case 'MES':
-                return $valor * 30;
-            case 'ANOS':
-            case 'ANO':
-                return $valor * 365;
-            case 'SEMANAS':
-            case 'SEMANA':
-                return $valor * 7;
-            case 'DIAS':
-            case 'DIA':
-            default:
-                return $valor;
+        if (strpos($str, 'ANO') !== false) {
+            return $valor * 365;
+        } elseif (strpos($str, 'MES') !== false) {
+            return $valor * 30;
+        } elseif (strpos($str, 'SEMANA') !== false) {
+            return $valor * 7;
+        } else {
+            return $valor;
         }
     }
 }
