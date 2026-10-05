@@ -198,11 +198,12 @@ class DashboardController {
                 $custoAcumuladoRotulo = "Acumulado (Historico)";
             }
 
-            // FUNCIONARIOS SEM PIN
+            // FUNCIONARIOS SEM PIN (usando tabela assinatura_eletronica)
             $stmt = $this->db->prepare(
-                "SELECT COUNT(*) as total FROM funcionarios 
-                 WHERE fun_situacao = 'ATIVO' 
-                 AND (fun_pin IS NULL OR fun_pin = '')"
+                "SELECT COUNT(*) as total FROM funcionarios f 
+                 LEFT JOIN assinatura_eletronica a ON f.fun_id = a.fun_id 
+                 WHERE f.fun_situacao = 'ATIVO' 
+                 AND a.ass_id IS NULL"
             );
             $stmt->execute();
             $funcionariosSemPin = (int)$stmt->fetch(PDO::FETCH_ASSOC)['total'];
