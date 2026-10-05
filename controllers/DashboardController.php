@@ -41,7 +41,7 @@ class DashboardController {
             $sevenDaysAhead = date('Y-m-d', strtotime('+7 days'));
             $firstDayOfMonth = date('Y-m-01') . ' 00:00:00';
 
-            // 1. ALERTAS DE C.A. (Certificado de Aprovacao)
+            // 1. ALERTAS DE C.A. (Certificado de Aprovacao) no catalogo de EPIs
             $stmt = $this->db->prepare(
                 "SELECT COUNT(*) as total FROM epis 
                  WHERE epi_status != 'INATIVO' 
@@ -62,12 +62,13 @@ class DashboardController {
             $stmt->execute([':now' => $today, ':limit' => $sevenDaysAhead]);
             $caAVencer7Dias = (int)$stmt->fetch(PDO::FETCH_ASSOC)['total'];
 
-            // 2. VIDA UTIL - EPIs em uso com vida util vencida/proxima
+            // 2. EPIs EM USO COM VIDA UTIL OU C.A. VENCIDO / PROXIMO DE TROCA
             // Deduplica por (fun_id, epi_id) para considerar apenas o item ativo mais recente por funcionario/EPI
             $stmt = $this->db->prepare(
                 "SELECT 
                     i.item_id, i.epi_id, e.entr_data_entrega, ep.epi_vida_util, 
                     ep.epi_vida_util_unidade, ep.epi_vida_util_tipo, ep.epi_vida_util_alerta,
+                    ep.epi_vencimento_ca, ep.epi_tipo_item,
                     e.fun_id
                  FROM itens_entrega i
                  INNER JOIN entrega_epis e ON i.entr_id = e.entr_id
@@ -82,10 +83,7 @@ class DashboardController {
                      AND (i2.item_devolucao_vinculo_entrega_id IS NULL OR i2.item_devolucao_vinculo_entrega_id = 0)
                      GROUP BY e2.fun_id, i2.epi_id
                  ) latest ON i.item_id = latest.max_item_id
-                 WHERE e.entr_status = 'FINALIZADA'
-                 AND ep.epi_vida_util_tipo = 'CONTROLADO'
-                 AND ep.epi_vida_util IS NOT NULL
-                 AND ep.epi_vida_util > 0"
+                 WHERE e.entr_status = 'FINALIZADA'"
             );
             $stmt->execute();
             $itensEmUso = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -96,28 +94,45 @@ class DashboardController {
             $funIdsProximos = [];
 
             foreach ($itensEmUso as $item) {
-                $dataEntrega = new DateTime($item['entr_data_entrega']);
-                $vidaUtilDias = $this->calcularVidaUtilEmDias(
-                    (int)$item['epi_vida_util'],
-                    $item['epi_vida_util_unidade']
-                );
+                $isVencido = false;
+                $isProximo = false;
 
-                if ($vidaUtilDias <= 0) continue;
+                // Checa se o C.A. está vencido no item entregue
+                if (!empty($item['epi_vencimento_ca']) && $item['epi_vencimento_ca'] !== '0000-00-00' && $item['epi_vencimento_ca'] < $today && ($item['epi_tipo_item'] ?? '') === 'EPI_COM_CA') {
+                    $isVencido = true;
+                }
 
-                $dataTroca = clone $dataEntrega;
-                $dataTroca->modify("+" . $vidaUtilDias . " days");
-                $hoje = new DateTime($today);
+                // Checa vida útil
+                if (($item['epi_vida_util_tipo'] ?? '') === 'CONTROLADO' && !empty($item['epi_vida_util']) && (int)$item['epi_vida_util'] > 0) {
+                    $dataEntrega = new DateTime($item['entr_data_entrega']);
+                    $vidaUtilDias = $this->calcularVidaUtilEmDias(
+                        (int)$item['epi_vida_util'],
+                        $item['epi_vida_util_unidade']
+                    );
 
-                if ($dataTroca < $hoje) {
+                    if ($vidaUtilDias > 0) {
+                        $dataTroca = clone $dataEntrega;
+                        $dataTroca->modify("+" . $vidaUtilDias . " days");
+                        $hoje = new DateTime($today);
+
+                        if ($dataTroca < $hoje) {
+                            $isVencido = true;
+                        } else {
+                            $diasParaTroca = (int)$hoje->diff($dataTroca)->format('%r%a');
+                            $diasAlerta = !empty($item['epi_vida_util_alerta']) ? (int)$item['epi_vida_util_alerta'] : 30;
+                            if ($diasParaTroca >= 0 && $diasParaTroca <= $diasAlerta) {
+                                $isProximo = true;
+                            }
+                        }
+                    }
+                }
+
+                if ($isVencido) {
                     $vidaUtilVencida++;
                     $funIdsVencidos[$item['fun_id']] = true;
-                } else {
-                    $diasParaTroca = (int)$hoje->diff($dataTroca)->format('%r%a');
-                    $diasAlerta = !empty($item['epi_vida_util_alerta']) ? (int)$item['epi_vida_util_alerta'] : 30;
-                    if ($diasParaTroca >= 0 && $diasParaTroca <= $diasAlerta) {
-                        $vidaUtilTrocaProxima++;
-                        $funIdsProximos[$item['fun_id']] = true;
-                    }
+                } elseif ($isProximo) {
+                    $vidaUtilTrocaProxima++;
+                    $funIdsProximos[$item['fun_id']] = true;
                 }
             }
 
